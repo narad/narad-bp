@@ -1,0 +1,208 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<properties>
+		<scala.version>2.9.0-1</scala.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+	<name>narad-bp</name>
+	<url>http://maven.apache.org</url>
+	<groupId>narad</groupId>
+	<artifactId>narad-bp</artifactId>
+	<version>1.0-SNAPSHOT</version>
+	<packaging>jar</packaging>
+
+	<repositories>
+		<repository>
+			<id>scala-tools.org</id>
+			<name>Scala-tools Maven2 Repository</name>
+			<url>http://scala-tools.org/repo-releases</url>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>scala-tools.org</id>
+			<name>Scala-tools Maven2 Repository</name>
+			<url>http://scala-tools.org/repo-releases</url>
+		</pluginRepository>
+	</pluginRepositories>
+
+	<dependencies>
+		<dependency>
+		    <groupId>org.apache.ant</groupId>
+		    <artifactId>ant</artifactId>
+		    <version>1.8.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.scala-lang</groupId>
+			<artifactId>scala-library</artifactId>
+			<version>${scala.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>3.8.1</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<profiles>
+		<profile>
+			<id>scala-build</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>org.scala-tools</groupId>
+							<artifactId>maven-scala-plugin</artifactId>
+							<version>2.12</version>
+						</plugin>
+
+						<plugin>
+							<artifactId>maven-assembly-plugin</artifactId>
+							<version>2.2-beta-5</version>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+
+				<plugins>
+					<!-- Tells Maven to use the Scala compiler first, from -->
+					<!-- http://scala-tools.org/mvnsites/maven-scala-plugin/usage_java.html -->
+					<plugin>
+						<groupId>org.scala-tools</groupId>
+						<artifactId>maven-scala-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>scala-compile-first</id>
+								<phase>process-resources</phase>
+								<goals>
+									<goal>add-source</goal>
+									<goal>compile</goal>
+								</goals>
+							</execution>
+							<execution>
+								<id>scala-test-compile</id>
+								<phase>process-test-resources</phase>
+								<goals>
+									<goal>testCompile</goal>
+								</goals>
+							</execution>
+						</executions>
+						<configuration>
+							<jvmArgs>
+								<jvmArg>-Xms64m</jvmArg>
+								<jvmArg>-Xmx1800m</jvmArg>
+							</jvmArgs>
+							<descriptorRefs>
+                  <descriptorRef>jar-with-dependencies</descriptorRef>
+              </descriptorRefs>
+						</configuration>
+					</plugin>
+
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-compiler-plugin</artifactId>
+						<configuration>
+							<!-- <executable>path/to/javac</executable> -->
+							<fork>true</fork>
+							<meminitial>512m</meminitial>
+							<maxmem>1024m</maxmem>
+							<!-- <compilerArgument>-verbose -bootclasspath ${java.home}\lib\rt.jar</compilerArgument> -->
+							<source>1.5</source>
+							<target>1.5</target>
+						</configuration>
+						<executions>
+							<execution>
+								<phase>compile</phase>
+								<goals>
+									<goal>compile</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+
+					<!-- Adds src/main/scala and src/test/scala as source folders, from http://groups.google.com/group/liftweb/browse_thread/thread/3dac7002f9e59546/3918bba2f7a92cd3?pli=1 -->
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>build-helper-maven-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>add-source</id>
+								<phase>generate-sources</phase>
+								<goals>
+									<goal>add-source</goal>
+								</goals>
+								<configuration>
+									<sources>
+										<source>src/main/scala</source>
+									</sources>
+								</configuration>
+							</execution>
+							<execution>
+								<id>add-test-source</id>
+								<phase>generate-sources</phase>
+								<goals>
+									<goal>add-test-source</goal>
+								</goals>
+								<configuration>
+									<sources>
+										<source>src/test/scala</source>
+									</sources>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+
+					<plugin>
+						<artifactId>maven-assembly-plugin</artifactId>
+						<configuration>
+							<formats>
+								<format>tar.gz</format>
+							</formats>
+							<descriptorRefs>
+								<descriptorRef>project</descriptorRef>
+							</descriptorRefs>
+							<descriptors>
+								<descriptor>src/main/assembly/src.xml</descriptor>
+							</descriptors>
+						</configuration>
+					</plugin>
+					
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+	<reporting>
+		<plugins>
+			<plugin>
+				<groupId>org.scala-tools</groupId>
+				<artifactId>maven-scala-plugin</artifactId>
+				<configuration>
+					<scalaVersion>${scala.version}</scalaVersion>
+				</configuration>
+			</plugin>
+		</plugins>
+	</reporting>
+
+</project>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
