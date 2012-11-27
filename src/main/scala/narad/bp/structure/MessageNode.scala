@@ -5,7 +5,10 @@ import scala.util.matching._
 //import narad.projects.relmarg._
 //import narad.projects.bpdp._
 
-abstract class MessageNode(idx: Int, val name: String) {	
+abstract class MessageNode(val idx: Int, val name: String) {
+
+  def arity: Int
+
 	def computeMessages(fg: FactorGraph, damp: Double, verbose: Boolean = false): Double
 	
 	def dampen(rev: Array[Double], old: Array[Double], damp: Double): Array[Double] = {
@@ -31,11 +34,16 @@ abstract class MessageNode(idx: Int, val name: String) {
 */	
 	def elementMultiplication(v1: Array[Double], pots: Array[Potential]): Array[Potential] = {
 		val v2 = pots.clone
+		assert(v1.size == v2.size)
 		for (i <- 0 until v2.size) v2(i).value *= v1(i)
 		return v2
 	}
 	
-	
+	def elementMultiplicationInPlace(v1: Array[Double], v2: Array[Potential]): Unit = {
+//		assert(v1.size == v2.size)
+		for (i <- 0 until v2.size) v2(i).value *= v1(i)
+	}
+		
 	def multiplyDown(vector: Array[Double], matrix: Array[Array[Double]]): Array[Array[Double]] = {
 		matrix.zipWithIndex.map { case(mvec, midx) => vector.toList.zip(mvec).map(p => p._1 * p._2).toArray }
 	}
@@ -79,7 +87,27 @@ abstract class MessageNode(idx: Int, val name: String) {
 		}
 		res
 	}
-	
+
+		def vprod(v1: Array[Double], v2: Array[Double]): Array[Double] = {
+	//		System.err.println(v1.size + " vs " + v2.size)
+			v1.zipWithIndex.map{case(e,i) => e * v2(i)}
+		}
+
+		def vdiv(v1: Array[Double], v2: Array[Double]): Array[Double] = {
+			v1.zipWithIndex.map{case(e,i) => e / v2(i)}
+		}
+
+		def vadd(v1: Array[Double], v2: Array[Double]): Array[Double] = {
+			v1.zipWithIndex.map{case(e,i) => e + v2(i)}
+		}
+
+		def vsub(v1: Array[Double], v2: Array[Double]): Array[Double] = {
+	//		println(v1.size + " vs " + v2.size)
+			v1.zipWithIndex.map{case(e,i) => e - v2(i)}
+		}
+
+
+/*	
 	def mAcross(v1: Array[Double], v2: Array[Array[Potential]]) = {
 		val res = Array.ofDim[Double](v1.size, v2(0).size)
 		for (i <- 0 until v1.size; j <- 0 until v2.size) {
@@ -88,6 +116,7 @@ abstract class MessageNode(idx: Int, val name: String) {
 		res
 	}
 
+
 	def mDown(v1: Array[Double], v2: Array[Array[Potential]]) = {
 		val res = Array.ofDim[Double](v1.size, v2(0).size)
 		for (i <- 0 until v1.size; j <- 0 until v2.size) {
@@ -95,6 +124,38 @@ abstract class MessageNode(idx: Int, val name: String) {
 		}
 		res
 	}
+*/	
+	
+
+	def mAcross(v1: Array[Double], v2: Array[Array[Potential]]) = {
+//		System.err.println("new vec = %d x %d".format(v2.size, v2(0).size))
+		assert(v2.size == v1.size, "(%d)x%d matrix v2 did not match vector dimensionality of %d in mAcross".format(v2.size, v2(0).size, v1.size))
+		Array.tabulate(v2.size, v2(0).size){ case(i,j) =>
+//			System.err.println("i = " + i + "; j = " + j + "; val " + v1(j) + " * pot = " + v2(j)(i))
+//			System.err.println("i = " + i + "; j = " + j)
+//			System.err.println("val " + v1(i) + " * pot = " + v2(i)(j))
+			v1(i) * v2(i)(j).value
+		}
+	}
+
+	
+	def mDown(v1: Array[Double], v2: Array[Array[Potential]]) = {
+//		System.err.println("new vec = %d x %d".format(v2.size, v2(0).size))
+		assert(v2(0).size == v1.size, "%dx(%d) matrix v2 did not match vector dimensionality of %d in mDown.".format(v2.size, v2(0).size, v1.size))
+		Array.tabulate(v2.size, v2(0).size){ case(i,j) =>
+//			System.err.println("i = " + i + "; j = " + j + "; val " + v1(j) + " * pot = " + v2(j)(i))
+//			System.err.println("i = " + i + "; j = " + j)
+//			System.err.println("val " + v1(i) + " * pot = " + v2(i)(j))
+			v1(j) * v2(i)(j).value
+		}
+	}
+	
+//		val res = Array.ofDim[Double](v1.size, v2(0).size)
+//		for (i <- 0 until v1.size; j <- 0 until v2.size) {
+//			res(i)(j) = v1(j) * v2(i)(j).value
+//		}
+//		res
+//	}
 	
 	def sAcross(m: Array[Array[Double]]): Array[Double] = {
 		val res = Array.ofDim[Double](m.size)
@@ -105,7 +166,7 @@ abstract class MessageNode(idx: Int, val name: String) {
 	}
 	
 	def sDown(m: Array[Array[Double]]): Array[Double] = {
-			val res = Array.ofDim[Double](m.size)
+			val res = Array.ofDim[Double](m(0).size)
 			for (i <- 0 until m.size; j <- 0 until m(0).size) {
 				res(j) += m(i)(j)
 			}
@@ -122,16 +183,24 @@ abstract class MessageNode(idx: Int, val name: String) {
 	
 	def isVariable: Boolean = toString.contains("Variable")
 	
+//	def isUnary: Boolean = arity == 1
+	
 	def normalize(v: Array[Potential]) = {
 		val sum = v.foldLeft(0.0)(_+_.value)
 		v.foreach(_.value /= sum)
 //		println("NORMED: " + v.map(_.toString).mkString(", "))
 	}
+
+  def norm(v: Array[Double]): Array[Double] = {
+    val sum = v.foldLeft(0.0)(_+_)
+    v.map(_ / sum)
+  }
 		
 	override def equals(that: Any): Boolean = {
 		this.toString == that.toString
 	}
 	
+	def truncate(x: Double) = "%.10f".format(x).toDouble
 	
 	override def toString = "Node%d[%s]".format(idx, name)
 }
@@ -147,7 +216,11 @@ case class MessageEdge(factor: Factor, variable: Variable) {
 	
 	override def toString = "%s ==> %s".format(factor.toString, variable.toString)
 	
-	override def equals(that: Any): Boolean = {
-		this.toString == that.toString
+	override def equals(that: Any): Boolean = that match {
+		case other: MessageEdge => factor.idx == other.factor.idx && variable.idx == other.variable.idx
+		case _=> false
 	}
+//	{
+//		this.toString == that.toString
+//	}
 }

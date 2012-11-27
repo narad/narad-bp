@@ -5,17 +5,23 @@ import scala.collection.mutable.ArrayBuffer
 class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, name) {
 
 	def computeMessages(graph: FactorGraph, damp: Double, verbose: Boolean = false): Double = {
-		if (verbose) println("Computing variable message for %s.".format(name))
+//		if (verbose) println("Computing variable message for %s.".format(name))
+//		println("damp = " + damp)
 		var maxDiff = -1.0
 		for (dest <- graph.edgesFrom(this)) {
+			if (verbose) println("\nVariable message from %s ==> %s:".format(this, dest.factor.name))
 			val omess = dest.v2f
 			var nmess = Array.fill(omess.size)(1.0)
 			for (e <- graph.edgesFrom(this) if e != dest) {
+				if (verbose) println("  * [%s] from %s...".format(e.f2v.mkString(", "), e.factor.name))
 				nmess = vprod(e.f2v, nmess)
 			}
+			if (verbose) println("  ...final message = [%s]".format(nmess.mkString(", ")))
 			val sum = nmess.foldLeft(0.0)(_+_)
 			nmess = nmess.map(_ / sum)
+//			if (verbose) println("  ...normalized =    [%s]".format(nmess.mkString(", ")))
 			val res = dampen(omess, nmess, damp)
+//			if (verbose) println("  ...updated    =    [%s]\n".format(res.mkString(", ")))
 			dest.v2f = res
 			val diffList = vsub(omess, res)
 			val diff = diffList.max
@@ -30,7 +36,7 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 		for (i <- 0 until res.size) res(i) *= e.f2v(i)
 		val sum = res.foldLeft(0.0)(_+_)
 		val beliefs = res.map(_ / sum)
-		return Array(Tuple(name, beliefs(1)))
+		return Array((name, beliefs(1)))
 	}
 
 	def logOdds(graph: FactorGraph): Double = {
@@ -44,23 +50,8 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 		return Math.log(res(1)) - Math.log(res(0))
 	}
 
-	def vprod(v1: Array[Double], v2: Array[Double]): Array[Double] = {
-		v1.zipWithIndex.map{case(e,i) => e * v2(i)}
-	}
-
-	def vdiv(v1: Array[Double], v2: Array[Double]): Array[Double] = {
-		v1.zipWithIndex.map{case(e,i) => e / v2(i)}
-	}
-
-	def vadd(v1: Array[Double], v2: Array[Double]): Array[Double] = {
-		v1.zipWithIndex.map{case(e,i) => e + v2(i)}
-	}
-
-	def vsub(v1: Array[Double], v2: Array[Double]): Array[Double] = {
-		v1.zipWithIndex.map{case(e,i) => e - v2(i)}
-	}
-
 	override def toString = "Variable%d[%s]".format(idx, name)
+
 }
 
 

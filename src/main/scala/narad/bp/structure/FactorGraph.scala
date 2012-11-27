@@ -9,6 +9,7 @@ import scala.util.matching._
 trait FactorGraph { //extends Graph[MessageNode, MessageEdge] {
 	def factors: Array[Factor]
 	def variables: Array[Variable]
+	def nodes: Array[MessageNode]
 	def edgesFrom(n: MessageNode): Iterator[MessageEdge]
 	def successors(n: MessageNode): Iterator[MessageNode]
 //	def beliefs(n: MessageNode): Array[Double]
@@ -22,7 +23,7 @@ object FactorGraph {
   def fromAdjacencyMatrix(nodelist: Array[MessageNode], dependencies: Array[Array[Int]]): FactorGraph = new FactorGraph {
 		lazy val edgeList = (for (i <- 0 until size; j <- dependencies(i)) 
 														yield new MessageEdge(nodelist(i).asInstanceOf[Factor],
-																									nodelist(j).asInstanceOf[Variable])).toList
+																									nodelist(j).asInstanceOf[Variable])).toArray
 
 		lazy val edgehash = constructMap
 		
@@ -141,6 +142,8 @@ object FactorGraph {
 		def propagate(iterations: Int, dampStart: Double, dampRate: Double, threshold: Double): Boolean = {
 			val queue = new Queue[MessageNode]
 			queue ++= nodelist
+//			queue ++= nodelist.filter(_.name.contains("brackfac")) ++ nodelist.filter(_.name.contains("labelfac")) ++ 
+//								nodelist.filter(_.name.contains("var")) ++ nodelist.filter(_.name.contains("atMost")) ++ nodelist.filter(_.name.contains("CKY"))
 
 			var i = 0; 
 			var damp = dampStart; 

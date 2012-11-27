@@ -8,7 +8,10 @@ import scala.util.matching._
 
 class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
 	val indicesPattern = new Regex("brackvar\\(([0-9]+)\\,([0-9]+)\\)")
-	
+
+
+  def arity = slen
+
 	def computeMessages(graph: FactorGraph, damp: Double, verbose: Boolean = false): Double = {
 if (verbose)		println("COMPUTING CKY MESSAGE!")
 		val pegs = new ArrayBuffer[(Int,Int)]
@@ -108,36 +111,14 @@ if (verbose)						println("set as %s".format(edge.f2v.mkString(", ")))
 		return Array[Potential]()
 //		assert(true, "Method getBeliefs() for CKYFactor should not be called! (yet!)")
 //		return null.asInstanceOf[Array[(String, Double)]]
-	}
-	
-	def logIncrement(s: Double, x: Double): Double = {
-		var d = 0.0
-		if (s == Double.NegativeInfinity) {
-			return x
-		}
-		else {
-			d = s - x
-			if (d >= 0) {
-				if (d <= 745) {
-					return s + Math.log(1.0 + Math.exp(-d))
-				}
-				else {
-					return s
-				}
-			}
-			else if (d < -745) {
-				return x
-			}
-			else {
-				return x + Math.log(1.0 + Math.exp(d))
-			}
-		}
-	}
+	}	
 }
 
 
 class ProjectiveTreeFactor(idx: Int, name: String, slen: Int, multirooted: Boolean = false) extends Factor(idx, name) {
 	val indicesPattern = new Regex("brackvar\\(([0-9]+)\\,([0-9]+)\\)")
+
+  def arity = slen
 
 	def computeMessages(graph: FactorGraph, damp: Double, verbose: Boolean = false): Double = {
 		println("Computing PTREE message!")
@@ -352,7 +333,7 @@ if (verbose)			println("Z_ != 0 loop")
 	def getBeliefs(graph: FactorGraph): Array[Potential] = {
 		return Array[Potential]()
 	}
-
+/*
 	def logIncrement(s: Double, x: Double): Double = {
 		var d = 0.0
 		if (s == Double.NegativeInfinity) {
@@ -376,4 +357,5 @@ if (verbose)			println("Z_ != 0 loop")
 			}
 		}
 	}
+	*/
 }
