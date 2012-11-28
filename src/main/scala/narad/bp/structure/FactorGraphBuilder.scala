@@ -22,7 +22,17 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		fcount += 1
 		return ncount-1
 	}
-	
+
+  def addProjectiveTreeFactor(pattern: Regex, facname: String = "PTREE", slen: Int): Int = {
+    nodes += new ProjectiveTreeFactor(ncount, facname, slen)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    for (i <- 0 until nodes.size-1 if matches(nodes(i).name, pattern) && nodes(i).isVariable) {
+      edges(nodes.size-1) += i
+    }
+    fcount += 1
+    return ncount-1
+  }
+
 	def addEdge(vidx: Int, fidx: Int) = {
 		edges(fidx) += vidx
 	}
@@ -185,10 +195,10 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		for (name <- vnames) addVariable(name, arity)
 	}
 
-	def addUnaryFactor(varname: String, facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
+	def addUnaryFactor(varname: String, facname: String = "fac%d".format(fcount), pot: Potential): Int = {
 		val idx = vnames.getOrElse(varname, -1)
 		assert(idx != -1, "Variable %s not found".format(varname))
-		nodes += FactorFactory.createUnaryFactor(ncount, facname, fpots(0))
+		nodes += FactorFactory.createUnaryFactor(ncount, facname, pot)
 		while (edges.size < nodes.size) edges += new ArrayBuffer
 		edges(nodes.size-1) += idx
 		fcount += 1
