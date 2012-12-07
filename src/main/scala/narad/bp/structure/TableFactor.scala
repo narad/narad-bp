@@ -56,34 +56,57 @@ class Table2Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extend
 		val edges = graph.edgesFrom(this).toArray
 //		System.err.println("Edges = " + edges)
 
-    if (verbose) System.err.println("DEBUG: POTS[0,0] = " + pots(0)(0))
-    if (verbose) System.err.println("DEBUG: POTS[0,1] = " + pots(0)(1))
-    if (verbose) System.err.println("DEBUG: POTS[1,0] = " + pots(1)(0))
-    if (verbose) System.err.println("DEBUG: POTS[1,1] = " + pots(1)(1))
+    for (i <- 0 until pots.size; j <- 0 until pots(i).size){
+      if (verbose) System.err.println("DEBUG:  POTS[%d,%d] = ".format(i, j) + pots(i)(j))
+    }
+    /*
     if (verbose) System.err.println("DEBUG: table2m[0,0] = " + edges(0).v2f(0) + " * " + edges(1).v2f(0))
     if (verbose) System.err.println("DEBUG: table2m[0,1] = " + edges(0).v2f(0) + " * " + edges(1).v2f(1))
     if (verbose) System.err.println("DEBUG: table2m[1,0] = " + edges(0).v2f(1) + " * " + edges(1).v2f(0))
     if (verbose) System.err.println("DEBUG: table2m[1,1] = " + edges(0).v2f(1) + " * " + edges(1).v2f(1))
 
+    Array2 tmp(pots_.shape());
+    dvec mess(pots_.extent(firstDim));
+
+    tmp = pots_ * g[dests[1]].v2f(j);
+	cout << "DEBUG:  TEMP1 = " << tmp << " " << endl;
+    mess = sum(tmp, j);
+	cout << "DEBUG: SUM 1 = " << mess << endl;
+    mess /= sum(mess);
+	cout << "DEBUG: MESS 1 = " << mess << "; damp = " << damp << endl;
+    damp_assign(g[dests[0]].f2v, mess, damp);
+
+    mess.resize(pots_.extent(secondDim));
+    tmp = pots_ * g[dests[0]].v2f(i);
+	cout << "DEBUG:  TEMP2 = " << tmp << " " << endl;
+    mess = sum(tmp(j, i), j);
+	cout << "DEBUG: SUM 1 = " << mess << endl;
+    mess /= sum(mess);
+    damp_assign(g[dests[1]].f2v, mess, damp);
+	cout << "DEBUG: MESS 2 = " << mess << "; damp = " << damp << endl;
+    return 0;
+         */
+
     val var1 = edges(0).variable
 		val var2 = edges(1).variable
-		val m2 = mAcross(edges(0).v2f, pots)
-    if (verbose) System.err.println("DEBUG: TMP[0,0] = " + m2(0)(0))
-    if (verbose) System.err.println("DEBUG: TMP[0,1] = " + m2(0)(1))
-    if (verbose) System.err.println("DEBUG: TMP[1,0] = " + m2(1)(0))
-    if (verbose) System.err.println("DEBUG: TMP[1,1] = " + m2(1)(1))
-    val sm2 = norm(sDown(m2))
-		edges(1).f2v = dampen(edges(1).f2v, sm2, damp)		
-		if (verbose) System.err.println("----------------")
-		val m1 = mDown(edges(1).v2f, pots)
-    if (verbose) System.err.println("DEBUG: TMP[0,0] = " + m1(0)(0))
-    if (verbose) System.err.println("DEBUG: TMP[0,1] = " + m1(0)(1))
-    if (verbose) System.err.println("DEBUG: TMP[1,0] = " + m1(1)(0))
-    if (verbose) System.err.println("DEBUG: TMP[1,1] = " + m1(1)(1))
-    val sm1 = norm(sAcross(m1))
-		edges(0).f2v = dampen(edges(0).f2v, sm1, damp)	
-		if (verbose) System.err.println("DEBUG: mess 1 = [" + sm1.mkString(", ") + "]; damp = " + damp)
-		if (verbose) System.err.println("DEBUG: mess 2 = [" + sm2.mkString(", ") + "]; damp = " + damp)
+    if (verbose) System.err.println("DEBUG:  Message in :" + edges(0).v2f.mkString(", "))
+		val m2 = mDown(edges(0).v2f, pots)
+    for (i <- 0 until m2.size; j <- 0 until m2(i).size){
+      if (verbose) System.err.println("DEBUG:  TMP[%d,%d] = ".format(i, j) + m2(i)(j))
+    }
+    val sm2 = norm(sAcross(m2))
+		edges(1).f2v = dampen(edges(1).f2v, sm2, damp)
+
+    if (verbose) System.err.println("----------------")
+    if (verbose) System.err.println("DEBUG:  Message in :" + edges(1).v2f.mkString(", "))
+    val m1 = mAcross(edges(1).v2f, pots)
+    for (i <- 0 until m1.size; j <- 0 until m1(i).size){
+      if (verbose) System.err.println("DEBUG:  TMP[%d,%d] = ".format(i, j) + m1(i)(j))
+    }
+    val sm1 = norm(sDown(m1))
+		edges(0).f2v = dampen(edges(0).f2v, sm1, damp)
+    if (verbose) System.err.println("DEBUG: mess 1 = [" + sm1.mkString(", ") + "]; damp = " + damp)
+    if (verbose) System.err.println("DEBUG: mess 2 = [" + sm2.mkString(", ") + "]; damp = " + damp)
 		return 0.0
 	}
 
@@ -92,7 +115,7 @@ class Table2Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extend
 //		System.err.println("Edges = " + edges + " in " + name)
 		val beliefs = pots.clone
 		for (i <- 0 until edges(0).variable.arity; j <- 0 until edges(1).variable.arity) {
-			beliefs(i)(j).value *= edges(0).v2f(i) * edges(1).v2f(j)
+			beliefs(j)(i).value *= edges(0).v2f(i) * edges(1).v2f(j)
 		}
     val f = beliefs.flatten
     normalize(f)
@@ -100,16 +123,129 @@ class Table2Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extend
 	}
 }
 
-/*
-class Table3Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extends Factor(idx, name) {
+class Table3Factor(idx: Int, name: String, pots: Array[Array[Array[Potential]]]) extends Factor(idx, name) {
 
+  def arity = 3
+
+  def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
+    val edges = graph.edgesFrom(this).toArray
+//    System.err.println("POTS ARITY = %d x %d x %d".format(pots.size, pots(0).size, pots(0)(0).size))
+//                     System.err.println("Incoming messages = ")
+//    System.err.println("  -- " + edges(0).v2f.mkString(","))
+//    System.err.println("  -- " + edges(1).v2f.mkString(","))
+//    System.err.println("  -- " + edges(2).v2f.mkString(","))
+    val tmp1 = Array.tabulate(pots.size, pots(0).size, pots(0)(0).size){case(i,j,k) => pots(i)(j)(k).value} //pots.clone()
+    val tmp2 = Array.tabulate(pots.size, pots(0).size, pots(0)(0).size){case(i,j,k) => pots(i)(j)(k).value}
+    val tmp3 = Array.tabulate(pots.size, pots(0).size, pots(0)(0).size){case(i,j,k) => pots(i)(j)(k).value}
+    for (i <- 0 until pots.size; j <- 0 until pots(i).size; k <- 0 until pots(i)(j).size) {
+//      System.err.println("pots %d,%d,%d = %s".format(i,j,k, pots(i)(j)(k)))
+      tmp1(i)(j)(k) = tmp1(i)(j)(k) * edges(1).v2f(j) * edges(2).v2f(k)
+      tmp2(i)(j)(k) = tmp2(i)(j)(k) * edges(0).v2f(i) * edges(2).v2f(k)
+      tmp3(i)(j)(k) = tmp3(i)(j)(k) * edges(0).v2f(i) * edges(1).v2f(j)
+    }
+//    for (i <- 0 until pots.size; j <- 0 until pots(i).size; k <- 0 until pots(i)(j).size) {
+//      System.err.println("pots AFTER %d,%d,%d = %s".format(i,j,k, pots(i)(j)(k)))
+//    }
+
+    val mess1 = new Array[Double](tmp1.size)
+    val mess2 = new Array[Double](tmp1(0).size)
+    val mess3 = new Array[Double](tmp1(0)(0).size)
+
+//    println("mess1 before = " + mess1.mkString(","))
+//    println("mess2 before = " + mess2.mkString(","))
+//    println("mess3 before = " + mess3.mkString(","))
+
+    for (i <- 0 until pots.size; j <- 0 until pots(i).size; k <- 0 until pots(i)(j).size) {
+//      println(i + "/" + j + "/" + k)
+      mess1(i) = mess1(i) + tmp1(i)(j)(k)
+      mess2(j) = mess2(j) + tmp2(i)(j)(k)
+      mess3(k) = mess3(k) + tmp3(i)(j)(k)
+    }
+//    println("Mess1 = " + norm(mess1).mkString(", "))
+//    println("Mess2 = " + norm(mess2).mkString(", "))
+//    println("Mess3 = " + norm(mess3).mkString(", "))
+
+    edges(0).f2v = dampen(edges(0).f2v, mess1, damp)
+    edges(1).f2v = dampen(edges(1).f2v, mess2, damp)
+    edges(2).f2v = dampen(edges(2).f2v, mess3, damp)
+
+
+      return 0.0
+  }
+
+
+  def getBeliefs(graph: FactorGraph): Array[Potential] = {
+    val edges = graph.edgesFrom(this).toArray
+    val beliefs = pots.clone()
+   // val bs = new ArrayBuffer[Potential]()
+    for (i <- 0 until edges(0).variable.arity; j <- 0 until edges(1).variable.arity; k <- 0 until edges(2).variable.arity) {
+      beliefs(i)(j)(k).value *= edges(0).v2f(i) * edges(1).v2f(j) * edges(2).v2f(k)
+    }
+    val f = beliefs.map(_.flatten).flatten
+    normalize(f)
+    f
+  }
 }
-*/
 
 
 
 
+/*
+class Table3Factor : public Factor {
+public:
+  Table3Factor(const string& name) : Factor(name) {}
+  Table3Factor(const string& name, const double *data, int dim1, int dim2, int dim3) : Factor(name) {
+    pots_.resize(dim1, dim2, dim3);
+    pots_ = Array3(const_cast<double *>(data), shape(dim1, dim2, dim3), duplicateData, fortranArray);
+  }
+  virtual double compute_messages(Vertex v, Graph& g, double damp) {
+    vector<Edge> dests(3);
+    all_out_edges(v, g, dests);
+    firstIndex i; secondIndex j; thirdIndex k;
 
+    Array3 tmp(pots_.shape());
+    dvec mess(pots_.extent(firstDim));
+
+    tmp = pots_ * g[dests[1]].v2f(j) * g[dests[2]].v2f(k);
+    mess = sum(sum(tmp, k), j);
+    damp_assign(g[dests[0]].f2v, mess, damp);
+
+    mess.resize(pots_.extent(secondDim));
+    tmp = pots_ * g[dests[0]].v2f(i) * g[dests[2]].v2f(k);
+    mess = sum(sum(tmp(j, i, k), k), j);
+    damp_assign(g[dests[1]].f2v, mess, damp);
+
+    mess.resize(pots_.extent(thirdDim));
+    tmp = pots_ * g[dests[0]].v2f(i) * g[dests[1]].v2f(j);
+    mess = sum(sum(tmp(k, j, i), k), j);
+    damp_assign(g[dests[2]].f2v, mess, damp);
+
+    return 0;
+  }
+  Array3 get_beliefs(Vertex v, const Graph& g) const {
+    Array3 a(pots_.shape());
+    vector<Edge> dests(3);
+    all_out_edges(v, g, dests);
+    firstIndex i; secondIndex j; thirdIndex k;
+    a = pots_ * g[dests[0]].v2f(i) * g[dests[1]].v2f(j) * g[dests[2]].v2f(k);
+    return a;
+  }
+  virtual double entropy(Vertex v, const Graph& g) {
+    Array3 a(pots_.shape());
+    vector<Edge> dests(3);
+    all_out_edges(v, g, dests);
+    firstIndex i; secondIndex j; thirdIndex k;
+    a = pots_ * g[dests[0]].v2f(i) * g[dests[1]].v2f(j) * g[dests[2]].v2f(k);
+    a /= sum(a);
+    double res = -sum(zapnan(a * log(a)));
+    res += sum(zapnan(a * log(pots_)));
+    return res;
+  }
+protected:
+  Array3 pots_;
+};
+
+ */
 
 
 //		val a = Array.tabulate(2,2)(case(i,j) => edges(0).v2f(i) * edges(1).v2f(j))

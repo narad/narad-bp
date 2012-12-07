@@ -11,7 +11,7 @@ trait SGDUpdates extends TrainingMethod {
 			val rate = options.RATE
 			System.err.println("rate = " + rate)
 			val pv = new ParameterUpdate
-			val beliefs = model.marginals
+			val beliefs = model.marginals.sortBy(_.name)
 			val feats = model.features
 			val margs = beliefs.map( b => if (b.isCorrect) b.value - 1.0 else b.value) //.map(truncate(_))
       System.err.println("POST-BP")

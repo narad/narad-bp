@@ -72,15 +72,30 @@ abstract class MessageNode(val idx: Int, val name: String) {
 		matrix.map(_.foldLeft(0.0)(_+_))
 	}
 	
-	def mAcross(v1: Array[Double], v2: Array[Array[Double]]) = {
+	def mAcross(v1: Array[Double], v2: Array[Array[Double]], colwise: Boolean = true) = {
+    System.err.println(v1.mkString(", "))
+    System.err.println(" * ")
+    System.err.println(v2.map(_.mkString(",")).mkString("\n"))
+		val res = Array.ofDim[Double](v1.size, v2(0).size)
+		for (i <- 0 until v1.size; j <- 0 until v2.size) {
+			res(i)(j) = v1(i) * v2(i)(j)
+		}
+    System.err.println(" = ")
+    System.err.println(res.map(_.mkString(",")).mkString("\n"))
+    res
+	}
+
+  /*
+  	def mAcross(v1: Array[Double], v2: Array[Array[Double]]) = {
 		val res = Array.ofDim[Double](v1.size, v2(0).size)
 		for (i <- 0 until v1.size; j <- 0 until v2.size) {
 			res(i)(j) = v1(i) * v2(i)(j)
 		}
 		res
 	}
+   */
 
-	def mDown(v1: Array[Double], v2: Array[Array[Double]]) = {
+  def mDown(v1: Array[Double], v2: Array[Array[Double]]) = {
 		val res = Array.ofDim[Double](v1.size, v2(0).size)
 		for (i <- 0 until v1.size; j <- 0 until v2.size) {
 			res(i)(j) = v1(j) * v2(i)(j)
@@ -128,24 +143,41 @@ abstract class MessageNode(val idx: Int, val name: String) {
 	
 
 	def mAcross(v1: Array[Double], v2: Array[Array[Potential]]) = {
-//		System.err.println("new vec = %d x %d".format(v2.size, v2(0).size))
+    System.err.println("multiply across:")
+		System.err.println("new vec = %d x %d".format(v2.size, v2(0).size))
 		assert(v2.size == v1.size, "(%d)x%d matrix v2 did not match vector dimensionality of %d in mAcross".format(v2.size, v2(0).size, v1.size))
 		Array.tabulate(v2.size, v2(0).size){ case(i,j) =>
-//			System.err.println("i = " + i + "; j = " + j + "; val " + v1(j) + " * pot = " + v2(j)(i))
+			System.err.println("i = " + i + "; j = " + j + "; val " + v1(i) + " * pot = " + v2(i)(j))
 //			System.err.println("i = " + i + "; j = " + j)
-//			System.err.println("val " + v1(i) + " * pot = " + v2(i)(j))
+	//		System.err.println("val " + v1(i) + " * pot = " + v2(i)(j))
+      System.err.println("   = " + (v1(i) * v2(i)(j).value))
 			v1(i) * v2(i)(j).value
 		}
 	}
 
-	
+  def mAcross(v1: Array[Double], v2: Array[Array[Array[Potential]]]) = {
+    System.err.println("multiply across:")
+    System.err.println("new vec = %d x %d".format(v2.size, v2(0).size))
+    assert(v2.size == v1.size, "(%d)x%d matrix v2 did not match vector dimensionality of %d in mAcross".format(v2.size, v2(0).size, v1.size))
+    Array.tabulate(v2.size, v2(0).size){ case(i,j) =>
+      System.err.println("i = " + i + "; j = " + j + "; val " + v1(i) + " * pot = " + v2(i)(j))
+      //			System.err.println("i = " + i + "; j = " + j)
+      //		System.err.println("val " + v1(i) + " * pot = " + v2(i)(j))
+      //System.err.println("   = " + (v1(i) * v2(i)(j).value))
+      //v1(i) * v2(i)(j).value
+      1
+    }
+  }
+
 	def mDown(v1: Array[Double], v2: Array[Array[Potential]]) = {
-//		System.err.println("new vec = %d x %d".format(v2.size, v2(0).size))
+    System.err.println("multiply down:")
+		System.err.println("new vec = %d x %d".format(v2.size, v2(0).size))
 		assert(v2(0).size == v1.size, "%dx(%d) matrix v2 did not match vector dimensionality of %d in mDown.".format(v2.size, v2(0).size, v1.size))
 		Array.tabulate(v2.size, v2(0).size){ case(i,j) =>
-//			System.err.println("i = " + i + "; j = " + j + "; val " + v1(j) + " * pot = " + v2(j)(i))
+			System.err.println("i = " + i + "; j = " + j + "; val " + v1(j) + " * pot = " + v2(i)(j))
 //			System.err.println("i = " + i + "; j = " + j)
-//			System.err.println("val " + v1(i) + " * pot = " + v2(i)(j))
+	//		System.err.println("val " + v1(i) + " * pot = " + v2(i)(j))
+      System.err.println("   = " + (v1(j) * v2(i)(j).value))
 			v1(j) * v2(i)(j).value
 		}
 	}
@@ -156,7 +188,26 @@ abstract class MessageNode(val idx: Int, val name: String) {
 //		}
 //		res
 //	}
-	
+
+  def multThrough(v: Array[Double], m2: Array[Array[Array[Potential]]], pivot: String="i"): Array[Array[Array[Potential]]] = {
+    val m = m2.clone()
+    for (i <- 0 until m.size; j <- 0 until m(0).size; k <- 0 until m(0)(0).size) {
+          pivot match {
+            case "i" => m(i)(j)(k).value = m(i)(j)(k).value * v(i)
+            case "j" => m(i)(j)(k).value = m(i)(j)(k).value * v(j)
+            case "k" => m(i)(j)(k).value = m(i)(j)(k).value * v(k)
+        }
+      }
+    m
+  }
+
+  def sumThrough(m: Array[Array[Array[Double]]]): Array[Array[Double]] = {
+    Array.tabulate(m.size, m(0).size) { case(i,j) =>
+      m(i)(j).foldLeft(0.0)(_+_)
+    }
+  }
+
+
 	def sAcross(m: Array[Array[Double]]): Array[Double] = {
 		val res = Array.ofDim[Double](m.size)
 		for (i <- 0 until m.size; j <- 0 until m(0).size) {

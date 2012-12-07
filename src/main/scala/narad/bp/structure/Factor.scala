@@ -9,31 +9,31 @@ abstract class Factor(idx: Int, name: String) extends MessageNode(idx, name) { /
 	override def toString = "Factor%d[%s]".format(idx, name)	
 	
 	def logIncrement(s: Double, x: Double): Double = {
-		System.out.println("QUEUE S = " + s)
-		System.out.println("QUEUE X = " + x)
+//		System.out.println("QUEUE S = " + s)
+//		System.out.println("QUEUE X = " + x)
 		if (s == Double.NegativeInfinity) {
-			System.out.println("QUEUE case 1")
+//			System.out.println("QUEUE case 1")
 			return x
 		}
 		else {
 			val d = s - x
 			if (d >= 0) {
 				if (d <= 745) {
-					System.out.println("QUEUE case 2")
-					System.out.println("QUEUE log is " + Math.log(1.0 + Math.exp(-1.0 * d)))
+//					System.out.println("QUEUE case 2")
+//					System.out.println("QUEUE log is " + Math.log(1.0 + Math.exp(-1.0 * d)))
 					return s + Math.log(1.0 + Math.exp(-1.0 * d))
 				}
 				else {
-					System.out.println("QUEUE case 5")
+//					System.out.println("QUEUE case 5")
 					return s
 				}
 			}
 			else if (d < -745) {
-				System.out.println("QUEUE case 3")
+//				System.out.println("QUEUE case 3")
 				return x
 			}
 			else {
-				System.out.println("QUEUE case 4")
+//				System.out.println("QUEUE case 4")
 				return x + Math.log(1.0 + Math.exp(d))
 			}
 		}
@@ -47,14 +47,14 @@ class UnaryFactor(idx: Int, name: String, var pots: Array[Potential]) extends Fa
 	def getBeliefs(graph: FactorGraph): Array[Potential] = {
 		val edges = graph.edgesFrom(this).toArray
 		assert (edges.size == 1)
-		//println("v2f message for %s is %s from %s.".format(name, edges.first.v2f.mkString(","),edges.first.variable.name))
-		//println("  * [%s]".format(pots.map(_.value).mkString(", ")))
+		println("DEBUG:  v2f message for %s is %s from %s.".format(name, edges.first.v2f.mkString(","),edges.first.variable.name))
+		println("DEBUG:    * [%s]".format(pots.map(_.value).mkString(", ")))
 		val beliefs = elementMultiplication(graph.edgesFrom(this).toArray.first.v2f, pots)
-		//println("  = [%s]".format(beliefs.map(_.value).mkString(", ")))
+		println("DEBUG:    = [%s]".format(beliefs.map(_.value).mkString(", ")))
 		normalize(beliefs)
-		//println(" = [%s] normalized.".format(beliefs.map(_.value).mkString(", ")))
-		//println(" returning potetnial %s".format(beliefs(1).toString))
-		//println
+		println("DEBUG:   = [%s] normalized.".format(beliefs.map(_.value).mkString(", ")))
+		println("DEBUG:   returning potetnial %s".format(beliefs(1).toString))
+		println("DEBUG:   ")
 		return Array(beliefs(1))
 	}
 

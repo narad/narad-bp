@@ -7,8 +7,10 @@ import java.io.FileWriter
 //import scala.util.matching._
 
 class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
+  val debugsort  = """un\(([0-9]+),([0-9]+)\)""".r
 
-	def train(data: Array[PotentialExample], options: OptimizerOptions): Array[Double] = {
+
+  def train(data: Array[PotentialExample], options: OptimizerOptions): Array[Double] = {
 		var params = init(options.INIT_FILE, options.PV_SIZE)
     val verbose = options.VERBOSE
 		for (i <- 0 until options.TRAIN_ITERATIONS) {
@@ -18,8 +20,12 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 					val instance = model.constructFromExample(ex, params)
           if (verbose) System.err.println(instance.graph)
 					val beliefs = instance.marginals
-					if (verbose) System.err.println("POST-EXP / BEFORE BP:")
-					if (verbose) beliefs.foreach(b => System.err.println("BEFORE: " + b))
+					if (verbose) System.err.println("DEBUG: POST-EXP / BEFORE BP:")
+					if (verbose) {
+//            if (beliefs(0).name.contains("un")) beliefs.sortBy{ p => val debugsort(s, e) = p.name; (5000 * s.toInt) + e.toInt }.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+//              beliefs.sortBy(_.name).foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+                        beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+          }
 					infer(instance, options)
 					update(instance, options)
 				}
