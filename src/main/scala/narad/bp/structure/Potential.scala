@@ -9,5 +9,7 @@ case class Potential(var value: Double, name: String, label: Boolean) {
 	   case _ => false
 	}
 	
-	override def toString = "%s%s[%f]".format(if (label) "+" else "-", name, value)
+//	override def toString = "%s\t%s".format(name, if (label) "+" else "")
+
+  override def toString = "%s%s[%f]".format(if (label) "+" else "-", name, value)
 }

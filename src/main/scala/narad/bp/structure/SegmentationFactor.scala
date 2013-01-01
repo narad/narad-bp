@@ -23,19 +23,24 @@ class SegmentationFactor(idx: Int, name: String, slen: Int, maxSeg: Int) extends
 					val w = k-i
 					if (w <= maxSeg) {
 						val m = edge.v2f
-						score(i)(w) = Math.log(m(1)) - Math.log(m(0))
-						if (verbose) System.err.println("QUEUE SCORE i = " + i + "; w = " + w + "; = " + score(i)(w))
+						score(i)(w) = scala.math.log(m(1)) - scala.math.log(m(0))
 						if (m(0) == 0) {
 							if (verbose) System.err.println("pushing")
 							score(i)(w) = 0
 							pegs += Tuple(i, w)
 						}
-						grad(i)(w) = Double.NegativeInfinity							
+            grad(i)(w) = Double.NegativeInfinity
 					}
 				}
 				case _=>
 			}
 		}
+
+    if (verbose) {
+      for (w <- 1 to maxSeg; i <- 0 until slen if i+w <= slen) {
+        System.err.println("SEG-IN for (%d,%d) = %f".format(i, w, score(i)(w)))
+      }
+    }
 
 		for (peg <- pegs) {
 			val start = peg._1
@@ -85,7 +90,7 @@ class SegmentationFactor(idx: Int, name: String, slen: Int, maxSeg: Int) extends
 //								truncate(1-Math.exp(score(i)(w) + grad(i)(w))), 
 //								truncate(Math.exp(grad(i)(w))))
 							if (score(i)(w) == Double.NegativeInfinity) m(1) = 0
-							if (verbose) System.err.println("QUEUE mess(%d)(%d) = [%s]".format(i,w, m.mkString(", ")))
+//							if (verbose) System.err.println("SEG-OUT for (%d,%d) = [%s]".format(i,w, m.mkString(", ")))
 							edge.f2v = dampen(edge.f2v, m, damp)										
 //						}
 					}
@@ -93,6 +98,15 @@ class SegmentationFactor(idx: Int, name: String, slen: Int, maxSeg: Int) extends
 				case _ => System.err.println("ERROR IN CKY FACTOR - CONNECTED VAR (%score) DOES NOT MATCH PATTERN!".format(edge.variable.name))
 			}
 		}
+
+    if (verbose) {
+      for (w <- 1 to maxSeg; i <- 0 until slen if i+w <= slen) {
+        val m = Array[Double](1-Math.exp(score(i)(w) + grad(i)(w)), Math.exp(grad(i)(w)))
+        if (score(i)(w) == Double.NegativeInfinity) m(1) = 0
+        System.err.println("SEG-OUT for (%d,%d) = [%s]".format(i,w, m.mkString(", ")))
+      }
+    }
+
 		return 0
 	}
 	

@@ -1,6 +1,7 @@
 package narad.bp.util
 import narad.bp.structure._
 import scala.collection.mutable.{HashMap, Map => MMap}
+import java.io.FileWriter
 
 
 case class PotentialExample(attributes: MMap[String, String], potentials: Array[Potential], features: HashMap[String, Array[Feature]]){
@@ -27,6 +28,15 @@ case class PotentialExample(attributes: MMap[String, String], potentials: Array[
 		pots.foreach { pot => pot.value = scala.math.exp(pot.value) }
 		pots
 	}
+
+  def writeToFile(out: FileWriter) {
+    for (a <- attributes.keys) out.write("@%s\t%s\n".format(a, attributes(a)))
+    for (p <- potentials) out.write("%s%s\n".format(p.toString, features(p.name).map(_.toString)))
+    out.write("\n")
+  }
 }
 
-case class Feature(idx: Int, value: Double, group: Int=0){}
+case class Feature(idx: Int, value: Double, group: Int=0){
+
+  override def toString = if (value == 1) idx.toString else "%d=%f".format(idx, value)
+}

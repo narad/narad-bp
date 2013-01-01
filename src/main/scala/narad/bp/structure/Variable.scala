@@ -19,7 +19,7 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 			if (verbose) println("  ...final message = [%s]".format(nmess.mkString(", ")))
 			val sum = nmess.foldLeft(0.0)(_+_)
 			nmess = nmess.map(_ / sum)
-//			if (verbose) println("  ...normalized =    [%s]".format(nmess.mkString(", ")))
+			if (verbose) println("  ...normalized =    [%s]".format(nmess.mkString(", ")))
 			val res = dampen(omess, nmess, damp)
 //			if (verbose) println("  ...updated    =    [%s]\n".format(res.mkString(", ")))
 			dest.v2f = res

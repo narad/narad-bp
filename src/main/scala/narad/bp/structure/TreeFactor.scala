@@ -32,8 +32,8 @@ if (verbose)		println("COMPUTING CKY MESSAGE!")
 					val m = edge.v2f
 					assert(m.size == 2, "Message from Variable to CKY factor should be boolean, has arity %d instead.".format(m.size))
 					score(i)(k) = Math.log(m(1)) - Math.log(m(0))
-if (verbose)					println("    SCORE[%d,%d] = %f".format(i,k, score(i)(k)))
-					if (m(0) == 0) {
+          if (verbose)					println("CKY-IN for (%d,%d) = %f".format(i, k, score(i)(k)))
+ 					if (m(0) == 0) {
 						score(i)(k) = 0
 						pegs += Tuple(i, k)
 					}
@@ -91,14 +91,19 @@ if (verbose)					println("    SCORE[%d,%d] = %f".format(i,k, score(i)(k)))
 					val i = start.toInt
 					val k = end.toInt
 					if (i != 0 || k != slen) {
-//						println("SCORE[%d,%d] = %f".format(i,k, score(i)(k)))
-//						println("GRAD[%d,%d] = %f".format(i,k, grad(i)(k)))
-						val m = Array[Double](1-Math.exp(score(i)(k) + grad(i)(k)), Math.exp(grad(i)(k)))
-						if (score(i)(k) == Double.NegativeInfinity) m(1) = 0
-if (verbose)						println("CKYPOTS %d,%d  =  %s".format(i,k, m.mkString(",")))
-if (verbose)						println("damping = " + damp)
-						edge.f2v = dampen(edge.f2v, m, damp)			
-if (verbose)						println("set as %s".format(edge.f2v.mkString(", ")))			
+						val m = Array[Double](1-scala.math.exp(score(i)(k) + grad(i)(k)), scala.math.exp(grad(i)(k)))
+            val odds = m(1) / m(0)
+            if (score(i)(k) == Double.NegativeInfinity || odds == Double.NegativeInfinity) {
+              m(0) = 1
+              m(1) = 0
+            }
+            else if (odds == Double.PositiveInfinity) {
+              m(0) = 0
+              m(1) = 1
+            }
+            if (verbose)  println("CKY-OUT for (%d,%d) = [%f,%f]".format(i, k, m(0), m(1)))
+            if (verbose)  println("--overwriting [%f, %f] with damp = %f".format(edge.f2v(0), edge.f2v(1), damp))
+            edge.f2v = dampen(edge.f2v, m, damp)
 					}
 				}
 				case _ => System.err.println("ERROR IN CKY FACTOR - CONNECTED VAR (%s) DOES NOT MATCH PATTERN!".format(edge.variable.name))

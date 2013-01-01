@@ -56,14 +56,17 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		return ncount-1
 	}
 
-	def addNandFactor(pattern1: Regex, pattern2: Regex, facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
-		nodes += FactorFactory.createNandFactor(ncount, facname, fpots(0))
+	def addNandFactor(pattern1: Regex, pattern2: Regex, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
+		nodes += FactorFactory.createNandFactor(ncount, facname, fpot)
+    var matchcount = 0
 		while (edges.size < nodes.size) edges += new ArrayBuffer
 		for (i <- 0 until nodes.size-1) {
 			if (matches(nodes(i).name, pattern1) || matches(nodes(i).name, pattern2)) {
 				edges(nodes.size-1) += i
+        matchcount += 1
 			}
-		} 
+		}
+    assert(matchcount > 1, "Nand Factor did not find two or more variables [found %d] to coordinate [pattern = '%s' and '%s'].".format(matchcount, pattern1, pattern2))
 		fcount += 1
 		return ncount-1
 	}
@@ -82,6 +85,19 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		fcount += 1
 		return ncount-1
 	}
+
+  def addEPUFactorByName(indicatorVarName: String, multVarName: String, arity: Int, facname: String = "fac%d".format(fcount)): Int = {
+    nodes += FactorFactory.createEPUFactor(ncount, facname, arity)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    for (i <- 0 until nodes.size-1) {
+      if (nodes(i).name == indicatorVarName) edges(nodes.size-1) += i
+    }
+    for (i <- 0 until nodes.size-1) {
+      if (nodes(i).name == multVarName) edges(nodes.size-1) += i
+    }
+    fcount += 1
+    return ncount-1
+  }
 	
 	def addSegmentationFactor(pattern: Regex, facname: String = "SEGMENT", slen: Int, maxWidth: Int): Int = {
 		nodes += new SegmentationFactor(ncount, facname, slen, maxWidth)
@@ -134,8 +150,11 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 
 		System.err.println("arity 1 = " + arity1)
 		System.err.println("arity 2 = " + arity2)
-		val npots = resize2(fpots, arity2, arity1)
+		val npots = resize2(fpots, arity1, arity2)
 		System.err.println("created a %d x %d for %d pots.".format(npots.size, npots(0).size, fpots.size))
+    for (i <- 0 until npots.size; j <- 0 until npots(i).size) {
+      System.err.println("  [%d,%d] = %s".format(i, j, npots(i)(j).toString))
+    }
 		nodes += new Table2Factor(ncount, facname, npots)
 
 		while (edges.size < nodes.size) edges += new ArrayBuffer
@@ -170,6 +189,7 @@ class FactorGraphBuilder(pots: Array[Potential]) {
     return ncount-1
   }
 
+/*
 	def resize2(opots: Array[Potential], arity1: Int, arity2: Int): Array[Array[Potential]] = {
 		System.err.println(opots.size)
 //		println(opots.mkString("\n"))
@@ -184,6 +204,14 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 //				opots(offset)
 		}
 	}
+*/
+
+  def resize2(opots: Array[Potential], numcols: Int, numrows: Int): Array[Array[Potential]] = {
+    Array.tabulate[Potential](numcols, numrows){ case(col,row) =>
+      val offset = (numcols * row) + col
+      opots(offset)
+    }
+  }
 
   def resize3(opots: Array[Potential], arity1: Int, arity2: Int, arity3: Int): Array[Array[Array[Potential]]] = {
     System.err.println(opots.size)
@@ -223,7 +251,7 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 	}
 	
 	def addVariable(vname: String, arity: Int): Int = {
-		System.err.println("arity = " + arity)
+	//	System.err.println("arity = " + arity)
 		assert(!vnames.contains(vname), "Variable %s is already defined in graph!".format(vname))
 		nodes += new Variable(ncount, vname, arity)
 		edges += new ArrayBuffer[Int]

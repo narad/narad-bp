@@ -9,7 +9,6 @@ import java.io.FileWriter
 class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
   val debugsort  = """un\(([0-9]+),([0-9]+)\)""".r
 
-
   def train(data: Array[PotentialExample], options: OptimizerOptions): Array[Double] = {
 		var params = init(options.INIT_FILE, options.PV_SIZE)
     val verbose = options.VERBOSE
@@ -17,17 +16,21 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 			for (batch <- order(data, i, options)) {
 				if (verbose) System.err.println("Batchsize = " + batch.size)
 				val updates = batch.map { ex =>
-					val instance = model.constructFromExample(ex, params)
+          val instance = model.constructFromExample(ex, params)
+          val beliefs = instance.marginals
+
+          if (verbose) System.err.println("DEBUG: GRAPH")
           if (verbose) System.err.println(instance.graph)
-					val beliefs = instance.marginals
-					if (verbose) System.err.println("DEBUG: POST-EXP / BEFORE BP:")
-					if (verbose) {
-//            if (beliefs(0).name.contains("un")) beliefs.sortBy{ p => val debugsort(s, e) = p.name; (5000 * s.toInt) + e.toInt }.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
-//              beliefs.sortBy(_.name).foreach(b => System.err.println("DEBUG: BEFORE: " + b))
-                        beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+          if (verbose) System.err.println("DEBUG: POST-EXP / BEFORE BP:")
+          if (verbose) {
+            //            if (beliefs(0).name.contains("un")) beliefs.sortBy{ p => val debugsort(s, e) = p.name; (5000 * s.toInt) + e.toInt }.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+            //              beliefs.sortBy(_.name).foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+            beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
           }
-					infer(instance, options)
-					update(instance, options)
+
+          infer(instance, options)
+          update(instance, options)
+
 				}
 				val avg = average(updates)
 				params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * data.size))
@@ -53,43 +56,16 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 		val params = init(options.INIT_FILE, options.PV_SIZE)
 		for (ex <- data) {
 			val instance = model.constructFromExample(ex, params)
-//			val margs = instance.marginals
-//			for (m <- margs) System.err.println("BEFORE: " + m)
 			infer(instance, options)
 			model.decode(instance)
 		}
 	}
 		
 	def updateParams(old: Array[Double], update: ParameterUpdate, scale: Double = -1.0, variance: Double = 0.0): Array[Double] = {
-		// Compute Regularization
-/*
-		System.err.println("Updating without Regularization...")
-		System.err.println("scale = " + scale)
-		System.err.println("variance = " + variance)
-		if (variance > 0) {
-			val reg = 1 - (-1.0 * scale / variance)  // David says remove negative when doing it right				
-			for (i <- 0 until pv.size) {
-				pv(i) = pv(i) * reg
-			}
-		}
-		*/
-		// Update Vector
     val pv = old.clone()
     for (i <- update.keys) {
 			pv(i) += update(i) * scale
 		}
-/*
-		for (i <- 0 until pv.size) {
-			pv(i) += update(i) * scale
-		}
-*/
-//		for (i <- 0 until updates.size if updates(i) != 0.0) {
-//			val grad = updates(i) * rate
-//			for (j <- 0 until feats(i).size) {
-//				val fidx = feats(i)(j).idx
-//				pv(fidx) = pv(fidx) + grad * feats(i)(j).value
-//			}
-//		}
 		pv
 	}
 
@@ -161,8 +137,45 @@ trait TrainingOptions {
 }
 
 
+/*
+
+class TwoStepOptimizer(model: Model) extends BeliefPropagation with SGDUpdates {
+
+  override def train(data: Array[PotentialExample], options: OptimizerOptions): Array[Double] = {
+    var params = init(options.INIT_FILE, options.PV_SIZE)
+    val verbose = options.VERBOSE
+    for (i <- 0 until options.TRAIN_ITERATIONS) {
+      for (batch <- order(data, i, options)) {
+        if (verbose) System.err.println("Batchsize = " + batch.size)
+        val updates = batch.map { ex =>
+          if (verbose) System.err.println("DEBUG: GRAPH")
+          if (verbose) System.err.println(instance.graph)
+
+          val instance = model.constructFromExample(ex, params)
+          val beliefs = instance.marginals
+          infer(instance, options)
+          update(instance, options)
+
+          if (verbose) System.err.println("DEBUG: POST-EXP / BEFORE BP:")
+          if (verbose) {
+            //            if (beliefs(0).name.contains("un")) beliefs.sortBy{ p => val debugsort(s, e) = p.name; (5000 * s.toInt) + e.toInt }.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+            //              beliefs.sortBy(_.name).foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+            beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+          }
+        }
+        val avg = average(updates)
+        params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * data.size))
+        if (verbose) System.err.println("PVV")
+        if (verbose) params.zipWithIndex.foreach {case(p,pi) => System.err.println(pi + "\t" + p)}
+      }
+      writeParams(params, i, options)
+    }
+    params
+  }
+}
 
 
+*/
 
 
 
