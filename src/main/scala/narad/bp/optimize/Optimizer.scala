@@ -9,13 +9,18 @@ import java.io.FileWriter
 class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
   val debugsort  = """un\(([0-9]+),([0-9]+)\)""".r
 
-  def train(data: Array[PotentialExample], options: OptimizerOptions): Array[Double] = {
+  def train(data: Iterable[PotentialExample], options: OptimizerOptions): Array[Double] = {
 		var params = init(options.INIT_FILE, options.PV_SIZE)
     val verbose = options.VERBOSE
+    val time = options.TIME
+    val DATA_SIZE = data.size
 		for (i <- 0 until options.TRAIN_ITERATIONS) {
-			for (batch <- order(data, i, options)) {
-				if (verbose) System.err.println("Batchsize = " + batch.size)
+      var batchCount = 0
+      var startTime = System.currentTimeMillis()
+      for (batch <- order(data, i, options)) {
+        batchCount += 1
 				val updates = batch.map { ex =>
+          // System.err.println("...processing " + ex.potentials.size)
           val instance = model.constructFromExample(ex, params)
           val beliefs = instance.marginals
 
@@ -27,32 +32,33 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
             //              beliefs.sortBy(_.name).foreach(b => System.err.println("DEBUG: BEFORE: " + b))
             beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
           }
-
           infer(instance, options)
           update(instance, options)
-
 				}
-				val avg = average(updates)
-				params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * data.size))
+        // System.err.println("Batchsize was " + updates.size)
+
+        val avg = average(updates)
+				params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * DATA_SIZE))
 				if (verbose) System.err.println("PVV")
 				if (verbose) params.zipWithIndex.foreach {case(p,pi) => System.err.println(pi + "\t" + p)}
 			}
-			writeParams(params, i, options)
+      if (time) System.err.println("Finished Training Iteration %d [%fs.]".format(i, (System.currentTimeMillis() - startTime) / 1000.0))
+      writeParams(params, i, options)
 		}
 		params
 	}
 	
-	def order(data: Array[PotentialExample], i: Int, options: OptimizerOptions): Iterator[Array[PotentialExample]] = {
+	def order(data: Iterable[PotentialExample], i: Int, options: OptimizerOptions): Iterator[Iterable[PotentialExample]] = {
 		val bsize = if (i+1 == options.TRAIN_ITERATIONS && options.AVERAGE_LAST) data.size else options.BATCH_SIZE
 		if (options.TRAIN_ORDER == "RANDOM") {
-			util.Random.shuffle(data.toSeq).toArray.grouped(bsize)			
+			util.Random.shuffle(data.toIterable).toIterator.grouped(bsize)
 		}
 		else {
 			data.grouped(bsize)
 		} 
 	}
 	
-	def test(data: Array[PotentialExample], options: OptimizerOptions) {
+	def test(data: Iterable[PotentialExample], options: OptimizerOptions) {
 		val params = init(options.INIT_FILE, options.PV_SIZE)
 		for (ex <- data) {
 			val instance = model.constructFromExample(ex, params)
@@ -98,7 +104,8 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 		}
 	}
 
-	def average(updates: Seq[ParameterUpdate]): ParameterUpdate = {
+	def average(updateIter: Iterable[ParameterUpdate]): ParameterUpdate = {
+    val updates = updateIter.toSeq
 		var update = updates(0)
 		for (i <- 1 until updates.size) {
 			update = update.add(updates(i))
@@ -134,34 +141,107 @@ trait TrainingOptions {
 
   def VARIANCE: Double
 
+  def TIME: Boolean
+
 }
 
 
-/*
 
-class TwoStepOptimizer(model: Model) extends BeliefPropagation with SGDUpdates {
+class TwoStepOptimizer(model: Model) extends Optimizer(model) {
 
-  override def train(data: Array[PotentialExample], options: OptimizerOptions): Array[Double] = {
+  override def train(data: Iterable[PotentialExample], options: OptimizerOptions): Array[Double] = {
     var params = init(options.INIT_FILE, options.PV_SIZE)
     val verbose = options.VERBOSE
     for (i <- 0 until options.TRAIN_ITERATIONS) {
       for (batch <- order(data, i, options)) {
         if (verbose) System.err.println("Batchsize = " + batch.size)
         val updates = batch.map { ex =>
-          if (verbose) System.err.println("DEBUG: GRAPH")
-          if (verbose) System.err.println(instance.graph)
+ //         if (verbose) System.err.println("DEBUG: GRAPH")
+ //         if (verbose) System.err.println(instance.graph)
 
-          val instance = model.constructFromExample(ex, params)
-          val beliefs = instance.marginals
-          infer(instance, options)
-          update(instance, options)
+
+          val instance1 = model.constructFromExample(ex, params)
+          val instance2 = model.constructFromExample(ex.clone(), params)
+          for (f <- instance2.graph.factors) {
+            if (f.name.contains("arg")) {
+              f.clamp()
+            }
+            if (f.name.startsWith("sense") || f.name.startsWith("label")) {
+              if (f.isCorrect) f.peg()
+            }
+          }
+
+
+          /*
+          val hpots = ex.getPotentials
+          for (pi <- 0 until hpots.size) {
+            if (hpots(pi).isCorrect) {
+              hpots(pi) = Potential(10000.0, hpots(pi).name, hpots(pi).label)
+            }
+          }
+          val instance2 = model.constructFromExample(new PotentialExample(ex.getAttributes, hpots, ex.getFeatures), params)
+
+
+          for (f <- instance2.graph.factors) {
+            if (f.arity == 1) {
+              f1 = f.asInstanceOf[UnaryFactor]
+              if (f1.isCorrect) {
+                f1.peg
+              }
+              else if (f1.name.contains("arg")) {
+                f1.neg
+              }
+            }
+          }
+          */
+
+          infer(instance1, options)
+          infer(instance2, options)
+          val denMargs = instance1.marginals
+          val numMargs = instance2.marginals
+
+          /*
+          System.err.println("MIXED MARGS:")
+          for (i <- 0 until denMargs.size) {
+            System.err.println(denMargs(i) + "\t\t\t" + numMargs(i))
+          }
+          println()
+            */
+
+          for (i <- 0 until denMargs.size) {
+            denMargs(i).value = denMargs(i).value - numMargs(i).value
+          }
+
+         // System.err.println("FINAL MARGS:")
+         // for (i <- 0 until denMargs.size) {
+         //   System.err.println(denMargs(i))
+         // }
+         // println()
+
+
+
+          val beliefs = denMargs.sortBy(_.name)
+
+          val rate = options.RATE
+          val pv = new ParameterUpdate
+          val feats = ex.features
+
+          val margs = beliefs.map(_.value)//.map( b => if (b.isCorrect) b.value - 1.0 else b.value)
+          val fnames = beliefs.collect{case p if feats.contains(p.name) => feats(p.name)}
 
           if (verbose) System.err.println("DEBUG: POST-EXP / BEFORE BP:")
-          if (verbose) {
-            //            if (beliefs(0).name.contains("un")) beliefs.sortBy{ p => val debugsort(s, e) = p.name; (5000 * s.toInt) + e.toInt }.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
-            //              beliefs.sortBy(_.name).foreach(b => System.err.println("DEBUG: BEFORE: " + b))
-            beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+          if (verbose) beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+
+       //   for (i <- 0 until margs.size) { System.err.println("DEBUG: post-bp marg[ " + beliefs(i).name + " ] =  " +  margs(i))}
+          val updates = margs
+          for (i <- 0 until updates.size if updates(i) != 0.0) {
+            val grad = updates(i) //* rate
+            for (j <- 0 until fnames(i).size) {
+              val fidx = fnames(i)(j).idx
+              pv(fidx) = pv.getOrElse(fidx, 0.0) + grad * fnames(i)(j).value
+            }
           }
+          pv
         }
         val avg = average(updates)
         params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * data.size))
@@ -175,7 +255,6 @@ class TwoStepOptimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 }
 
 
-*/
 
 
 

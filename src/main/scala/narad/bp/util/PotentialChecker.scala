@@ -2,6 +2,7 @@ package narad.bp.util
 import narad.bp.structure.Potential
 import scala.collection.mutable.HashSet
 
+/*
 object PotentialChecker {
 	
 	def main(args: Array[String]) = {
@@ -27,3 +28,5 @@ object PotentialChecker {
 		}
 	}
 }
+
+*/

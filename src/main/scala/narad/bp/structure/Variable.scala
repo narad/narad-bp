@@ -1,6 +1,7 @@
 package narad.bp.structure
 
 import scala.collection.mutable.ArrayBuffer
+import scala.math._
 
 class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, name) {
 
@@ -47,7 +48,7 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 				res(i) *= edge.f2v(i)
 			}
 		}
-		return Math.log(res(1)) - Math.log(res(0))
+		return log(res(1)) - log(res(0))
 	}
 
 	override def toString = "Variable%d[%s]".format(idx, name)

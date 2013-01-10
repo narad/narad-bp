@@ -19,6 +19,11 @@ class Table1Factor(idx: Int, name: String, pots: Array[Potential]) extends Facto
     normalize(beliefs)
     beliefs
   }
+
+  override def clamp() = {
+    pots.foreach {p => if (p.isCorrect) p.value = 1.0 else p.value = 0.0 }
+  }
+
 }
 
 
@@ -67,6 +72,10 @@ class Table2Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extend
     val f = beliefs.flatten
     normalize(f)
     f
+  }
+
+  override def clamp() = {
+    pots.flatten.foreach {p => if (p.isCorrect) p.value = 1.0 else p.value = 0.0 }
   }
 }
 

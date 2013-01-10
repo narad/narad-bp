@@ -39,16 +39,16 @@ trait BeliefPropagation extends InferenceMethod {
 				if (diff > maxDiff) maxDiff = diff
         j += 1
 			}
-			System.err.println("Propagation time: " + (System.currentTimeMillis() - startTime) / 1000.0 + "s.")
+			//System.err.println("Propagation time: " + (System.currentTimeMillis() - startTime) / 1000.0 + "s.")
 			startTime = System.currentTimeMillis()
 			if (i > 0 && maxDiff < options.DIFF_THRESHOLD) {
 				return (true, i)
 			}
-      System.err.println("DEBUG: original damp_rate = " + options.DAMP_RATE)
-      System.err.println("DEBUG: damp update: damp=%f * drate=%f = %f".format(damp, drate, damp * drate))
+      //System.err.println("DEBUG: original damp_rate = " + options.DAMP_RATE)
+      if (verbose) System.err.println("DEBUG: damp update: damp=%f * drate=%f = %f".format(damp, drate, damp * drate))
 			if (i > 1) damp *= drate
 		}
-		System.err.println("BP did not converge.")
+		if (verbose) System.err.println("BP did not converge.")
 		(false, options.INFERENCE_ITERATIONS)
 	}
 }
@@ -83,7 +83,7 @@ trait InferenceOptions {
 trait InferenceOrder {
 	
 	def messageOrder(graph: FactorGraph): Iterator[MessageNode] = {
-    System.err.println("Using Default Inference Order...")
+  //  System.err.println("Using Default Inference Order...")
 		val mqueue = scala.collection.mutable.Queue[MessageNode]() 
 		for (fac <- graph.factors) {
 			if (graph.edgesFrom(fac).size == 1)

@@ -1,10 +1,19 @@
 package narad.bp.structure
+import scala.math._
 
 abstract class Factor(idx: Int, name: String) extends MessageNode(idx, name) { //}, potential: FactorPotential) extends MessageNode(idx, name) {
 
-	def computeMessages(fg: FactorGraph, damp: Double, verbose: Boolean): Double
+  def clamp() { System.err.println("Clamping %s is not supported.".format(name)) }
+
+  def peg() { System.err.println("Pegging %s is not supported.".format(name)) }
+
+  def neg() { System.err.println("Negging %s is not supported.".format(name)) }
+
+  def computeMessages(fg: FactorGraph, damp: Double, verbose: Boolean): Double
 	
 	def getBeliefs(graph: FactorGraph): Array[Potential]
+
+  def isCorrect = false
 
 	override def toString = "Factor%d[%s]".format(idx, name)	
 	
@@ -13,7 +22,7 @@ abstract class Factor(idx: Int, name: String) extends MessageNode(idx, name) { /
 //		System.out.println("QUEUE X = " + x)
 		if (s == Double.NegativeInfinity) {
 //			System.out.println("QUEUE case 1")
-			return x
+			x
 		}
 		else {
 			val d = s - x
@@ -21,20 +30,20 @@ abstract class Factor(idx: Int, name: String) extends MessageNode(idx, name) { /
 				if (d <= 745) {
 //					System.out.println("QUEUE case 2")
 //					System.out.println("QUEUE log is " + Math.log(1.0 + Math.exp(-1.0 * d)))
-					return s + Math.log(1.0 + Math.exp(-1.0 * d))
+					s + log(1.0 + exp(-1.0 * d))
 				}
 				else {
 //					System.out.println("QUEUE case 5")
-					return s
+					s
 				}
 			}
 			else if (d < -745) {
 //				System.out.println("QUEUE case 3")
-				return x
+				x
 			}
 			else {
 //				System.out.println("QUEUE case 4")
-				return x + Math.log(1.0 + Math.exp(d))
+				x + log(1.0 + exp(d))
 			}
 		}
 	}
@@ -44,31 +53,47 @@ class UnaryFactor(idx: Int, name: String, var pots: Array[Potential]) extends Fa
 
   def arity = 1
 
+  def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
+    if (verbose) println("Computing message in Factor %s.".format(name))
+    val edge = graph.edgesFrom(this).toArray.head
+    edge.f2v = dampen(edge.f2v, pots.map(_.value), damp)
+    0.0
+  }
+
 	def getBeliefs(graph: FactorGraph): Array[Potential] = {
 		val edges = graph.edgesFrom(this).toArray
 		assert (edges.size == 1)
-		println("DEBUG:  v2f message for %s is %s from %s.".format(name, edges.first.v2f.mkString(","),edges.first.variable.name))
-		println("DEBUG:    * [%s]".format(pots.map(_.value).mkString(", ")))
-		val beliefs = elementMultiplication(graph.edgesFrom(this).toArray.first.v2f, pots)
-		println("DEBUG:    = [%s]".format(beliefs.map(_.value).mkString(", ")))
+//		println("DEBUG:  v2f message for %s is %s from %s.".format(name, edges.head.v2f.mkString(","),edges.first.variable.name))
+//		println("DEBUG:    * [%s]".format(pots.map(_.value).mkString(", ")))
+		val beliefs = elementMultiplication(graph.edgesFrom(this).toArray.head.v2f, pots)
+//		println("DEBUG:    = [%s]".format(beliefs.map(_.value).mkString(", ")))
 		normalize(beliefs)
+/*
 		println("DEBUG:   = [%s] normalized.".format(beliefs.map(_.value).mkString(", ")))
 		println("DEBUG:   returning potetnial %s".format(beliefs(1).toString))
 		println("DEBUG:   ")
-		return Array(beliefs(1))
+*/
+    Array(beliefs(1))
 	}
 
-	def peg = {
+	override def peg() = {
 		pots(0).value = 0.0
 		pots(1).value = 1.0
 	}
 
-	def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
-		if (verbose) println("Computing message in Factor %s.".format(name))
-		val edge = graph.edgesFrom(this).toArray.first
-		edge.f2v = dampen(edge.f2v, pots.map(_.value), damp)
-		return 0.0
-	}
+  override def neg() = {
+    pots(0).value = 1.0
+    pots(1).value = 0.0
+  }
+
+  override def clamp() = {
+    //pots.foreach {p => if (p.isCorrect) p.value = 1.0 else p.value = 0.0 }
+    if (isCorrect) peg() else neg()
+  }
+
+  override def isCorrect = pots(1).isCorrect
+
+
 }
 
 

@@ -4,6 +4,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.matching._
 //import narad.projects.relmarg._
 //import narad.projects.bpdp._
+import scala.math._
 
 
 class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
@@ -19,7 +20,7 @@ if (verbose)		println("COMPUTING CKY MESSAGE!")
 		val beta  = Array.ofDim[Double](slen+1, slen+1)
 		val score = Array.ofDim[Double](slen+1, slen+1)
 		val grad  = Array.ofDim[Double](slen+1, slen+1)
-		val cc = graph.edgesFrom(this).toList.size
+	//	val cc = graph.edgesFrom(this).Array.size
 //		println(graph.toString)
 //		println("tree has %d neighbors".format(cc))
 
@@ -121,7 +122,7 @@ if (verbose)		println("COMPUTING CKY MESSAGE!")
 
 
 class ProjectiveTreeFactor(idx: Int, name: String, slen: Int, multirooted: Boolean = false) extends Factor(idx, name) {
-	val indicesPattern = new Regex("brackvar\\(([0-9]+)\\,([0-9]+)\\)")
+	val INDICES_PATTERN = new Regex(".*\\(([0-9]+)\\,([0-9]+)\\).*")
 
   def arity = slen
 
@@ -137,15 +138,23 @@ class ProjectiveTreeFactor(idx: Int, name: String, slen: Int, multirooted: Boole
 		val edges = graph.edgesFrom(this).toArray
 		var ei = 0
 
+    val groups = edges.groupBy{e =>
+      val INDICES_PATTERN(start, end) = e.variable.name
+      (start.toInt, end.toInt)
+    }
+
 		for (dep <- 1 to slen) {
 			val tkoffset = dep * slen
 			tkmat(tkoffset + dep - 1) = 0
 			var trues = 0
 			var trueHead = -1
 			for (head <- 0 to slen if dep != head) {
-				val edge = edges(ei)
-				ei += 1
-				assert(edge.variable.name == "linkvar(%d,%d)".format(head, dep), edge.variable.name + " did not match with head " + head + " and dep " + dep)
+        val earray = groups((head, dep))
+        assert(earray.size == 1, "For head = %d and dep = %d, %d incoming edges were found in ProjectiveTreeFactor".format(head, dep, earray.size))
+        val edge = earray(0)
+//				val edge = edges(ei)
+//				ei += 1
+//				assert(edge.variable.name == "linkvar(%d,%d)".format(head, dep), edge.variable.name + " did not match with head " + head + " and dep " + dep)
 				val m = edge.v2f
 if (verbose)				println("DEBUG:  input message from kid " + dep + " and head " + head + " is = " + m.mkString(", "))
 				if (m(0) == 0) {
@@ -185,9 +194,11 @@ if (verbose)			println("DEBUG:  Z_ = 0 loop")
 						case -1 =>   normalize(Array(1.0, zdep + tkmat(head * slen + dep - 1)))
 						case _ => if (heads(dep-1) == head) Array(0.0, 1.0) else Array(1.0, 0.0)  // Doesn't like match comp with head
 					}
-          System.err.println("DEBUG:  to var " + edges(ei).variable.name)
-          System.err.println("DEBUG:  " + m.mkString(" "))
-					edges(ei).f2v = dampen(edges(ei).f2v, m, damp)
+          if (verbose) System.err.println("DEBUG:  to var " + edges(ei).variable.name)
+          if (verbose) System.err.println("DEBUG:  " + m.mkString(" "))
+          val edge = groups((head, dep))(0)
+          edge.f2v = dampen(edge.f2v, m, damp)
+//          edges(ei).f2v = dampen(edges(ei).f2v, m, damp)
 					ei += 1
 				}
 			}
@@ -208,9 +219,11 @@ if (verbose)			println("DEBUG:  Z_ != 0 loop")
 						}
 						case _ => if (heads(dep-1) == head) Array(0.0, 1.0) else Array(1.0, 0.0)
 					}
-          System.err.println("DEBUG:  to var " + edges(ei).variable.name)
-          System.err.println("DEBUG:  " + m.mkString(" "))
-          edges(ei).f2v = dampen(edges(ei).f2v, m, damp)
+          if (verbose) System.err.println("DEBUG:  to var " + edges(ei).variable.name)
+          if (verbose) System.err.println("DEBUG:  " + m.mkString(" "))
+          val edge = groups((head, dep))(0)
+          edge.f2v = dampen(edge.f2v, m, damp)
+          //          edges(ei).f2v = dampen(edges(ei).f2v, m, damp)
 					ei += 1
 				}
 			}
@@ -336,7 +349,7 @@ if (verbose)			println("DEBUG:  Z_ != 0 loop")
 			}
 		}
 		for (i <- 0 until slen * slen) { gradmat(i) = Math.exp(gradmat(i)); println("DEBUG fradmat %d = %f".format(i, gradmat(i))) }
-		return Math.abs(res) //slog(res, 1)
+		return abs(res) //slog(res, 1)
 	}
 
   /*

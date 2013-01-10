@@ -9,16 +9,17 @@ trait SGDUpdates extends TrainingMethod {
 
 		def update(model: ModelInstance, options: OptimizerOptions): ParameterUpdate = {
 			val rate = options.RATE
-			System.err.println("rate = " + rate)
+			//System.err.println("rate = " + rate)
 			val pv = new ParameterUpdate
 			val beliefs = model.marginals.sortBy(_.name)
 			val feats = model.features
 			val margs = beliefs.map( b => if (b.isCorrect) b.value - 1.0 else b.value) //.map(truncate(_))
-      System.err.println("POST-BP")
-      margs.foreach(System.err.println(_))
+      //System.err.println("POST-BP")
+      //margs.foreach(System.err.println(_))
 			val fnames = beliefs.collect{case p if feats.contains(p.name) => feats(p.name)}
-			System.err.println("DEBUG: Post-BP MARGINALS:")
-			for (i <- 0 until margs.size) { System.err.println("DEBUG: post-bp marg[ " + beliefs(i).name + " ] =  " +  margs(i))}
+
+      //System.err.println("DEBUG: Post-BP MARGINALS:")
+			//for (i <- 0 until margs.size) { System.err.println("DEBUG: post-bp marg[ " + beliefs(i).name + " ] =  " +  margs(i))}
 			val updates = margs
 			for (i <- 0 until updates.size if updates(i) != 0.0) {
 				val grad = updates(i) //* rate

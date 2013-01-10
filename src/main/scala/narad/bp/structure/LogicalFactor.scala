@@ -108,71 +108,6 @@ class IsAtMost1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, n
 }
 
 
-/*
-Here's the logic: let's call the predicate variable P and the argOf
-variable A. You want to prohibit the variable assignment where A is
-true and P is false. All other variable assignments are OK and can be
-scored by their other appropriate factors. The potential table for the
-binary factor therefore looks like:
-
-           P
-        0    1
-------------------
-  0    1     1
-A
-  1    0     1
-
-Multiply one incoming message by this potential table to get an
-outgoing message; also do it in the opposite direction. This is what
-Table2Factor does, for instance. And no, you do need to send messages
-in both directions: if A is more likely to be on, P is more likely to
-be on; if P is more likely to be off, A is more likely to be off. I
-think this is related to a misunderstanding in your code. You don't
-need to special-case the case where the probability of P being true is
-0. It'll just fall out of the message computations. The only reason I
-need to special-case zero messages is if they lead to division by
-zero.
-*/
-class YouShallNotPassFactor(idx: Int, name: String) extends Factor(idx, name) {
-	val pots = Array.ofDim[Double](2, 2)
-	pots(0)(0) = 1
-	pots(0)(1) = 1
-	pots(1)(0) = 0
-	pots(1)(1) = 1
-
-  def arity = 10
-
-	// Edge 0 assumed to be from the indicator variable
-	def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
-//		val edges = graph.edgesFrom(this).toArray
-		
-//		println("computing message in YSNP: " + name)
-//		println("logic pots = ")
-//		printMatrix(pots)
-
-//		println
-		val edges = graph.edgesFrom(this).toArray
-//		println("edge 0 goes to " + edges(0).variable.name + " with message " + edges(0).v2f.mkString(", "))
-//		println("edge 1 goes to " + edges(1).variable.name + " with message " + edges(1).v2f.mkString(", "))
-		val m1 = mDown(edges(0).v2f, pots)
-//		println("multiplied down = ")
-//		printMatrix(m1)
-		edges(1).f2v = dampen(edges(1).f2v, sAcross(m1), damp)
-
-//		println
-		val m2 = mAcross(edges(1).v2f, pots)
-//		println("multiplied across = ")
-//		printMatrix(m2)
-		edges(0).f2v = dampen(edges(0).f2v, sDown(m2), damp)		
-		return 0.0
-	}
-	
-		def getBeliefs(graph: FactorGraph): Array[Potential] = {
-			return Array[Potential]()
-		}
-		
-}
-
 class NandFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends Table2Factor(idx, name, pots) {
 
 
@@ -186,12 +121,16 @@ class NandFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends 
 		return Array(rpot)  // pots[name_] = a(1,1) / sum(a);
 	}
 	
-	def peg = {
+	override def peg = {
 		pots(0)(0).value = 0.0
 		pots(0)(1).value = 0.0
 		pots(1)(0).value = 0.0
 		pots(1)(1).value = 1.0
 	}
+
+  override def clamp() = if (isCorrect) peg
+
+  override def isCorrect = pots(1)(1).isCorrect
 }
 
 class ImpliesFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends Table2Factor(idx, name, pots) {
@@ -207,7 +146,7 @@ class ImpliesFactor(idx: Int, name: String, pots: Array[Array[Potential]]) exten
 		return Array(rpot)  // pots[name_] = a(1,1) / sum(a);
 	}
 	
-	def peg = {
+	override def peg = {
 		pots(0)(0).value = 0.0
 		pots(0)(1).value = 0.0
 		pots(1)(0).value = 1.0
@@ -287,4 +226,68 @@ public:
   }
 };
 
+
+/*
+Here's the logic: let's call the predicate variable P and the argOf
+variable A. You want to prohibit the variable assignment where A is
+true and P is false. All other variable assignments are OK and can be
+scored by their other appropriate factors. The potential table for the
+binary factor therefore looks like:
+
+           P
+        0    1
+------------------
+  0    1     1
+A
+  1    0     1
+
+Multiply one incoming message by this potential table to get an
+outgoing message; also do it in the opposite direction. This is what
+Table2Factor does, for instance. And no, you do need to send messages
+in both directions: if A is more likely to be on, P is more likely to
+be on; if P is more likely to be off, A is more likely to be off. I
+think this is related to a misunderstanding in your code. You don't
+need to special-case the case where the probability of P being true is
+0. It'll just fall out of the message computations. The only reason I
+need to special-case zero messages is if they lead to division by
+zero.
+*/
+class YouShallNotPassFactor(idx: Int, name: String) extends Factor(idx, name) {
+	val pots = Array.ofDim[Double](2, 2)
+	pots(0)(0) = 1
+	pots(0)(1) = 1
+	pots(1)(0) = 0
+	pots(1)(1) = 1
+
+  def arity = 10
+
+	// Edge 0 assumed to be from the indicator variable
+	def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
+//		val edges = graph.edgesFrom(this).toArray
+
+//		println("computing message in YSNP: " + name)
+//		println("logic pots = ")
+//		printMatrix(pots)
+
+//		println
+		val edges = graph.edgesFrom(this).toArray
+//		println("edge 0 goes to " + edges(0).variable.name + " with message " + edges(0).v2f.mkString(", "))
+//		println("edge 1 goes to " + edges(1).variable.name + " with message " + edges(1).v2f.mkString(", "))
+		val m1 = mDown(edges(0).v2f, pots)
+//		println("multiplied down = ")
+//		printMatrix(m1)
+		edges(1).f2v = dampen(edges(1).f2v, sAcross(m1), damp)
+
+//		println
+		val m2 = mAcross(edges(1).v2f, pots)
+//		println("multiplied across = ")
+//		printMatrix(m2)
+		edges(0).f2v = dampen(edges(0).f2v, sDown(m2), damp)
+		return 0.0
+	}
+
+		def getBeliefs(graph: FactorGraph): Array[Potential] = {
+			return Array[Potential]()
+		}
+}
 */

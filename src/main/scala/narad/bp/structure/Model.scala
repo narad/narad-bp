@@ -21,8 +21,8 @@ abstract class FactorGraphModel extends Model with InferenceOrder {
 	
 }
 
-class ModelInstance(val graph: FactorGraph, ex: PotentialExample) extends InferenceOrder {
-	
+class ModelInstance(val graph: FactorGraph, val ex: PotentialExample) extends InferenceOrder {
+
 	def features = ex.getFeatures
 	
 	def marginals = graph.potentialBeliefs.filter(_.name != "null")
