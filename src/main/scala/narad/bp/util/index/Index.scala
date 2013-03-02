@@ -13,5 +13,7 @@ abstract class Index[T] {
 
   def indexOf(t: T): Int
 
+  def size: Int
+
 }
 

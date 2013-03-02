@@ -1,27 +1,24 @@
 package narad.bp.structure
-//import narad.structure.graph._
 import scala.collection.mutable.{ArrayBuffer, HashMap, Queue}
-import scala.util.matching._
-//import narad.projects.relmarg._
-//import narad.projects.bpdp._
 
-
-trait FactorGraph { //extends Graph[MessageNode, MessageEdge] {
+trait FactorGraph {
 	def factors: Array[Factor]
 	def variables: Array[Variable]
 	def nodes: Array[MessageNode]
 	def edgesFrom(n: MessageNode): Iterator[MessageEdge]
 	def successors(n: MessageNode): Iterator[MessageNode]
-//	def beliefs(n: MessageNode): Array[Double]
 	def potentialBeliefs: Array[Potential]
-	def variableBeliefs: Array[(String, Double)] 
+	def variableBeliefs: Array[(String, Double)]
+  def toBuilder: FactorGraphBuilder
 }
 
 object FactorGraph {
 
 
   def fromAdjacencyMatrix(nodelist: Array[MessageNode], dependencies: Array[Array[Int]]): FactorGraph = new FactorGraph {
-		lazy val edgeList = (for (i <- 0 until size; j <- dependencies(i)) 
+
+
+    lazy val edgeList = (for (i <- 0 until size; j <- dependencies(i))
 														yield new MessageEdge(nodelist(i).asInstanceOf[Factor],
 																									nodelist(j).asInstanceOf[Variable])).toArray
 
@@ -44,28 +41,7 @@ object FactorGraph {
 			}
 			return map
 		}
-/*
-			val map = new HashMap[Int, ArrayBuffer[Int]]
-			for (i <- 0 until edgeList.size) {
-				val e = edgeList(i)
-				val fi = nodehash(e.factor)
-				val vi = nodehash(e.variable)
-				if (!map.contains(fi)){
-					map(fi) = new ArrayBuffer(i)
-				} 
-				else {
-					map(fi) += i
-				}
-				if (!map.contains(vi)){
-					map(vi) = new ArrayBuffer(i)
-				} 
-				else {
-					map(vi) += i
-				}
-			}
-   	return map
-	}
-*/	
+
 
 		lazy val nodehash = nodelist.zipWithIndex.foldLeft(Map[MessageNode, Int]())((m,p) => m + (p._1 -> p._2))
 
@@ -84,22 +60,7 @@ object FactorGraph {
 			for (v <- variables) beliefs ++= v.getBeliefs(this)
 			beliefs.toArray
 		}
-		
-		// hoping this is real space arithmetic
-		// method called from factors - variables have their own getBeliefs
-/*
-		def beliefs(n: MessageNode): Array[Double] = {
-			val msize = messageSize(n)
-			val res = new Array[Double](msize)
-			for (i <- 0 until msize) res(i) = 1.0
-			for (edge <- edgesFrom(n)) {
-				for (i <- 0 until msize) res(i) *= edge.f2v(i) //edge.f2v(i) // changed to fix SRL Model, may have ruined parser model?
-			}
-			val sum = res.foldLeft(0.0)(_+_)
-			return res.map(_ / sum)
-		}		
-*/
-				
+
 		def messageSize(n: MessageNode) = edges.next.f2v.size
 		
 		def nodes = nodelist
@@ -108,20 +69,11 @@ object FactorGraph {
 		
 		def variables = ivariables
 
-//		def nodes: Iterator[MessageNode] = nodelist.iterator        //for (n <- nodelist) yield n
-		
-//		def factors: Iterator[Factor] = ifactors.iterator           //for (f <- ifactors) yield f         //factors.iterator //for (n <- nodes if n.isFactor) //nodes.filter(_.isFactor).view.map(_.asInstanceOf[Factor]).iterator
-		
-//		def variables: Iterator[Variable[Int]] = ivariables.iterator         //for (v <- ivariables) yield v         //variables.iterator //nodes.filter(_.isVariable).view.map(_.asInstanceOf[Variable[Int]]).iterator
-
 		def edges: Iterator[MessageEdge] = edgeList.iterator
 
 		def edgesFrom(n: MessageNode): Iterator[MessageEdge] = (for (e <- edgehash.getOrElse(nodehash(n), Array[Int]())) yield edgeList(e)).iterator   //.map(edgeList(0)) //.map(edgeList(_)).iterator    //for (e <- edges if (e contains n)) yield e
 
-//		def successors(node: MessageNode): Iterator[MessageNode] = dependencies(nodelist.indexOf(node)).view.map(nodelist(_)).iterator
-//def successors(node: MessageNode): Iterator[MessageNode] = dependencies(nodehash(node)).view.map(nodelist(_)).iterator
-	def successors(node: MessageNode): Iterator[MessageNode] = for (d <- dependencies(nodehash(node)).iterator) yield nodelist(d)     //(dependencies(nodehash(node)).foreach(yield nodelist(d)))
-//dependencies(nodelist.indexOf(node)).view.map(nodelist(_)).iterator
+    def successors(node: MessageNode): Iterator[MessageNode] = for (d <- dependencies(nodehash(node)).iterator) yield nodelist(d)     //(dependencies(nodehash(node)).foreach(yield nodelist(d)))
 
 		def size: Int = nodelist.size		
 
@@ -136,14 +88,21 @@ object FactorGraph {
 			}
 			sb.append("]")
 			sb.toString
-		}	
-			
-	
+		}
+
+    def toBuilder: FactorGraphBuilder = {
+      val pots = potentialBeliefs
+      val fg = new FactorGraphBuilder(pots)
+//      System.err.println("# nodes in builder conversion = " + nodes.size)
+//      System.err.println("# dependencies in builder conversion = " + dependencies.size)
+      for (n <- nodes) fg.nodes += n
+      for (ei <- 0 until dependencies.size; e <- dependencies(ei)) fg.addEdge(e, ei) //fg.edges(ei) ++= dependencies(ei)
+      fg
+    }
+
 		def propagate(iterations: Int, dampStart: Double, dampRate: Double, threshold: Double): Boolean = {
 			val queue = new Queue[MessageNode]
 			queue ++= nodelist
-//			queue ++= nodelist.filter(_.name.contains("brackfac")) ++ nodelist.filter(_.name.contains("labelfac")) ++ 
-//								nodelist.filter(_.name.contains("var")) ++ nodelist.filter(_.name.contains("atMost")) ++ nodelist.filter(_.name.contains("CKY"))
 
 			var i = 0; 
 			var damp = dampStart; 
@@ -196,6 +155,65 @@ object FactorGraph {
 
 
 
+
+
+// hoping this is real space arithmetic
+// method called from factors - variables have their own getBeliefs
+/*
+		def beliefs(n: MessageNode): Array[Double] = {
+			val msize = messageSize(n)
+			val res = new Array[Double](msize)
+			for (i <- 0 until msize) res(i) = 1.0
+			for (edge <- edgesFrom(n)) {
+				for (i <- 0 until msize) res(i) *= edge.f2v(i) //edge.f2v(i) // changed to fix SRL Model, may have ruined parser model?
+			}
+			val sum = res.foldLeft(0.0)(_+_)
+			return res.map(_ / sum)
+		}
+*/
+
+
+//extends Graph[MessageNode, MessageEdge] {
+
+/*
+      val map = new HashMap[Int, ArrayBuffer[Int]]
+      for (i <- 0 until edgeList.size) {
+        val e = edgeList(i)
+        val fi = nodehash(e.factor)
+        val vi = nodehash(e.variable)
+        if (!map.contains(fi)){
+          map(fi) = new ArrayBuffer(i)
+        }
+        else {
+          map(fi) += i
+        }
+        if (!map.contains(vi)){
+          map(vi) = new ArrayBuffer(i)
+        }
+        else {
+          map(vi) += i
+        }
+      }
+     return map
+  }
+*/
+
+//		def nodes: Iterator[MessageNode] = nodelist.iterator        //for (n <- nodelist) yield n
+
+//		def factors: Iterator[Factor] = ifactors.iterator           //for (f <- ifactors) yield f         //factors.iterator //for (n <- nodes if n.isFactor) //nodes.filter(_.isFactor).view.map(_.asInstanceOf[Factor]).iterator
+
+//		def variables: Iterator[Variable[Int]] = ivariables.iterator         //for (v <- ivariables) yield v         //variables.iterator //nodes.filter(_.isVariable).view.map(_.asInstanceOf[Variable[Int]]).iterator
+
+
+//		def successors(node: MessageNode): Iterator[MessageNode] = dependencies(nodelist.indexOf(node)).view.map(nodelist(_)).iterator
+//def successors(node: MessageNode): Iterator[MessageNode] = dependencies(nodehash(node)).view.map(nodelist(_)).iterator
+//dependencies(nodelist.indexOf(node)).view.map(nodelist(_)).iterator
+
+
+
+
+//			queue ++= nodelist.filter(_.name.contains("brackfac")) ++ nodelist.filter(_.name.contains("labelfac")) ++
+//								nodelist.filter(_.name.contains("var")) ++ nodelist.filter(_.name.contains("atMost")) ++ nodelist.filter(_.name.contains("CKY"))
 
 
 //			println("nodes:")

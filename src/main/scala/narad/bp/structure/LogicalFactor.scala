@@ -140,7 +140,7 @@ class ImpliesFactor(idx: Int, name: String, pots: Array[Array[Potential]]) exten
 		val b = super.getBeliefs(graph)
 		val sum = b.foldLeft(0.0)(_+_.value)
 		val rpots = b.filter(_.name != "n/a")
-		assert(rpots.size == 1, "Did not find expected number of pots (1) in NandFactor.")
+		assert(rpots.size == 1, "Did not find expected number of pots (1) in ImpliesFactor.")
 		val rpot = rpots(0)
 		rpot.value = rpot.value / sum
 		return Array(rpot)  // pots[name_] = a(1,1) / sum(a);
@@ -153,6 +153,14 @@ class ImpliesFactor(idx: Int, name: String, pots: Array[Array[Potential]]) exten
 		pots(1)(1).value = 0.0
 	}
 }
+
+class HardLogicFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends Table2Factor(idx, name, pots) {
+
+  override def getBeliefs(graph: FactorGraph): Array[Potential] = {
+    return Array()  // pots[name_] = a(1,1) / sum(a);
+  }
+}
+
 
 class EPUFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends Table2Factor(idx, name, pots) {
 

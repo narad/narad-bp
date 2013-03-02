@@ -32,6 +32,8 @@ class ArrayIndex[T: Manifest](init: Int=100000000, grow: Int=10000000) extends I
     indexed.getOrElse(t, -1)
   }
 
+  def size = max
+
   def valueOf(i: Int): Option[T] = {
     if (i < max) Option(list(i)) else None
   }

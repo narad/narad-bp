@@ -25,7 +25,7 @@ class PotentialReader(filename: String) extends mutable.Iterable[PotentialExampl
       val feats = new HashMap[String, Array[Feature]]
       try {
            Iterator.continually(lines.next()).takeWhile{line => lines.hasNext && !matches(line, END_PATTERN)}.foreach { line =>
-             if (line.contains("slen")) System.err.println("...reading line..." + line)
+//             if (line.contains("slen")) System.err.println("...reading line..." + line)
              line match {
             case ATTRIBUTE_PATTERN(name, value) => {
               map(name) = value
@@ -47,7 +47,7 @@ class PotentialReader(filename: String) extends mutable.Iterable[PotentialExampl
       }
       catch { case e: Exception => {} }
 
-    System.err.println("Pot Reader pots.size = " + pots.size)
+ //   System.err.println("Pot Reader pots.size = " + pots.size)
     if (pots.size > 0) {
       return new PotentialExample(map, pots.toArray, feats)
     }
@@ -58,6 +58,22 @@ class PotentialReader(filename: String) extends mutable.Iterable[PotentialExampl
 
   def matches(str: String, regex: Regex): Boolean = {
     regex.pattern.matcher(str).matches
+  }
+
+  override def size = {
+    var pcount = 0
+    var lastHadText = false
+    for (line <- scala.io.Source.fromFile(filename).getLines()) {
+      if (lastHadText && line.trim.size == 0) {
+        pcount += 1
+        lastHadText = false
+      }
+      else if (line.trim.size > 0) {
+        lastHadText = true
+      }
+    }
+    if (lastHadText) pcount += 1
+    pcount
   }
 }
 

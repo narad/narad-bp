@@ -33,7 +33,27 @@ case class PotentialExample(attributes: MMap[String, String], potentials: Array[
 
   def writeToFile(out: FileWriter) {
     for (a <- attributes.keys) out.write("@%s\t%s\n".format(a, attributes(a)))
-    for (p <- potentials) out.write("%s%s\n".format(p.toString, features(p.name).map(_.toString)))
+    val batch = true
+    if (batch) {
+      for (p <- potentials) out.write("%s\t%s%s\n".format(p.name, if (p.isCorrect) "+" else "", features(p.name).map(_.toString).mkString(" ")))
+    }
+    else {
+      val builder = new StringBuilder
+      for (p <- potentials) {
+        builder.append("%s\t%s".format(p.name, if (p.isCorrect) "+" else ""))
+        if (features(p.name).size == 0) {
+          builder.append("0")
+        }
+        else {
+          for (f <- features(p.name).map(_.toString)) {
+            builder.append(f.toString)
+            builder.append(" ")
+          }
+        }
+        out.write(builder.toString())
+        builder.clear()
+      }
+    }
     out.write("\n")
   }
 }

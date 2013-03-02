@@ -1,4 +1,5 @@
 package narad.bp.util.index
+import scala.math._
 
 /**
  * Created with IntelliJ IDEA.
@@ -10,9 +11,11 @@ package narad.bp.util.index
 class HashIndex(n: Int=1000000000) extends Index[String] {
 
   def index(s: String): Int = {
-    val h = s.hashCode
-    if (h < n) h else scala.math.abs(h % n)
+    val h = abs(s.hashCode)
+    if (h < n) h else h % n
   }
 
   def indexOf(s: String) = index(s)
+
+  def size = -1
 }
