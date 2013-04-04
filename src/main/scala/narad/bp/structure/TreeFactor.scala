@@ -32,11 +32,12 @@ if (verbose)		println("COMPUTING CKY MESSAGE!")
 					val k = end.toInt
 					val m = edge.v2f
 					assert(m.size == 2, "Message from Variable to CKY factor should be boolean, has arity %d instead.".format(m.size))
-					score(i)(k) = Math.log(m(1)) - Math.log(m(0))
-          if (verbose)					println("CKY-IN for (%d,%d) = %f".format(i, k, score(i)(k)))
+					score(i)(k) = log(m(1)) - log(m(0))
+          //if (verbose)
+    //        println("CKY-IN for (%d,%d) = %f".format(i, k, score(i)(k)))
  					if (m(0) == 0) {
 						score(i)(k) = 0
-						pegs += Tuple(i, k)
+						pegs += ((i, k))
 					}
 				}
 				case _ => System.err.println("ERROR IN CKY FACTOR - CONNECTED VAR (%s) DOES NOT MATCH PATTERN!".format(edge.variable.name))
@@ -127,7 +128,7 @@ class ProjectiveTreeFactor(idx: Int, name: String, slen: Int, multirooted: Boole
   def arity = slen
 
 	def computeMessages(graph: FactorGraph, damp: Double, verbose: Boolean = false): Double = {
-		println("Computing PTREE message!")
+		System.err.println("Computing PTREE message!")
 		val maxdim = slen + 1
 		val worksize = maxdim * maxdim
 		val tkmat    = Array.ofDim[Double](worksize + maxdim)
@@ -156,7 +157,7 @@ class ProjectiveTreeFactor(idx: Int, name: String, slen: Int, multirooted: Boole
 //				ei += 1
 //				assert(edge.variable.name == "linkvar(%d,%d)".format(head, dep), edge.variable.name + " did not match with head " + head + " and dep " + dep)
 				val m = edge.v2f
-if (verbose)				println("DEBUG:  input message from kid " + dep + " and head " + head + " is = " + m.mkString(", "))
+if (verbose)				System.err.println("DEBUG:  input message from kid " + dep + " and head " + head + " is = " + m.mkString(", "))
 				if (m(0) == 0) {
 					trues += 1
 					trueHead = head 
@@ -184,7 +185,7 @@ if (verbose)				println("DEBUG:  input message from kid " + dep + " and head " +
 		val z = sumTree(tkmat, gradmat, slen, multirooted)
 		ei = 0
 		if (z == 0) {
-if (verbose)			println("DEBUG:  Z_ = 0 loop")
+if (verbose)			System.err.println("DEBUG:  Z_ = 0 loop")
 			for (dep <- 1 to slen) {
 				val zdep = tkmat(dep * (slen + 1) - 1)
 				val koffset = (dep - 1) * slen
@@ -205,7 +206,7 @@ if (verbose)			println("DEBUG:  Z_ = 0 loop")
 			return 0
 		}
 		else {
-if (verbose)			println("DEBUG:  Z_ != 0 loop")
+if (verbose)			System.err.println("DEBUG:  Z_ != 0 loop")
 			for (dep <- 1 to slen) {
 				val koff = (dep - 1) * slen
 				val tkoff = dep * slen
@@ -231,42 +232,42 @@ if (verbose)			println("DEBUG:  Z_ != 0 loop")
 		}
 	}
 
-	def sumTree(tkmat: Array[Double], gradmat: Array[Double], slen: Int, multirooted: Boolean = false): Double = {
+	def sumTree(tkmat: Array[Double], gradmat: Array[Double], slen: Int, multirooted: Boolean = false, verbose: Boolean = false): Double = {
 		val sch = Array.ofDim[Double](slen+1, slen+1, 2, 2)
 		val gch = Array.ofDim[Double](slen+1, slen+1, 2, 2)
 		var res = 0.0
 		val start = if (multirooted) 0 else 1
-//		println("slen = %d".format(slen))
+//		System.err.println("slen = %d".format(slen))
 		for (i <- 0 until slen*slen) gradmat(i) = Double.NegativeInfinity
 		for (s <- 0 to slen; i <- 0 to 1; j <- 0 to 1) sch(s)(s)(i)(j) = 0.0
 		for (width <- 1 to slen; s <- start to slen) {
 			val t = s + width
-//			println("s = %d; t = %d".format(s, t))
+//			System.err.println("s = %d; t = %d".format(s, t))
 			if (t <= slen) {
 				for (i <- 0 to 1; j <- 0 to 1) sch(s)(t)(i)(j) = Double.NegativeInfinity
 				if (s > 0) {
-					val lkid = Math.log(-1.0 * tkmat(t * slen + s-1))
+					val lkid = log(-1.0 * tkmat(t * slen + s-1))
 					for (r <- s until t) {
-	//					println("DEBUG: \tsch(s)(r)(1)(1) = " + sch(s)(r)(1)(1))
-	//					println("DEBUG: \tsch(r+1)(t)(0)(1) = " + sch(r+1)(t)(0)(1))
-	//					println("DEBUG: \tkid = " + lkid)
-            println("DEBUG:  sch(%d)(%d)(1)(1) += ".format(s,r) + sch(s)(r)(1)(1) + " + " + sch(r+1)(t)(0)(1) + " + " + lkid)
+	//					System.err.println("DEBUG: \tsch(s)(r)(1)(1) = " + sch(s)(r)(1)(1))
+	//					System.err.println("DEBUG: \tsch(r+1)(t)(0)(1) = " + sch(r+1)(t)(0)(1))
+	//					System.err.println("DEBUG: \tkid = " + lkid)
+            System.err.println("DEBUG:  sch(%d)(%d)(1)(1) += ".format(s,r) + sch(s)(r)(1)(1) + " + " + sch(r+1)(t)(0)(1) + " + " + lkid)
 						sch(s)(t)(0)(0) = logIncrement(sch(s)(t)(0)(0), sch(s)(r)(1)(1) + sch(r+1)(t)(0)(1) + lkid)
-//						println("sch(s)(t)(0)(0) after update 1 = " + sch(s)(t)(0)(0))
+//						System.err.println("sch(s)(t)(0)(0) after update 1 = " + sch(s)(t)(0)(0))
 					}
 				}
 				val rkid = Math.log(-1.0 * tkmat(s * slen + t-1))
 				for (r <- s until t) {
 					sch(s)(t)(1)(0) = logIncrement(sch(s)(t)(1)(0), sch(s)(r)(1)(1) + sch(r+1)(t)(0)(1) + rkid)		
-//					println("sch(s)(t)(1)(0) update to %f when r = %d".format(sch(s)(t)(1)(0), r))					
+//					System.err.println("sch(s)(t)(1)(0) update to %f when r = %d".format(sch(s)(t)(1)(0), r))
 				}
 				for (r <- s until t) {
 					sch(s)(t)(0)(1) = logIncrement(sch(s)(t)(0)(1), sch(s)(r)(0)(1) + sch(r)(t)(0)(0))							
-//					println("sch(s)(t)(0)(1) update to %f when r = %d".format(sch(s)(t)(0)(1), r))					
+//					System.err.println("sch(s)(t)(0)(1) update to %f when r = %d".format(sch(s)(t)(0)(1), r))
 				}
 				for (r <- s+1 to t) {
 					sch(s)(t)(1)(1) = logIncrement(sch(s)(t)(1)(1), sch(s)(r)(1)(0) + sch(r)(t)(1)(1))							
-//					println("sch(s)(t)(1)(1) update to %f when r = %d".format(sch(s)(t)(1)(1), r))					
+//					System.err.println("sch(s)(t)(1)(1) update to %f when r = %d".format(sch(s)(t)(1)(1), r))
 				}
 			}
 		}
@@ -277,7 +278,7 @@ if (verbose)			println("DEBUG:  Z_ != 0 loop")
 			}
 		}
 		res = sch(0)(slen)(1)(1)
-//		println("res = " + res)
+//		System.err.println("res = " + res)
 		for (s <- 0 to slen; t <- s to slen; i <- 0 to 1; j <- 0 to 1) {
 			gch(s)(t)(i)(j) = Double.NegativeInfinity
 		}
@@ -285,70 +286,70 @@ if (verbose)			println("DEBUG:  Z_ != 0 loop")
 		if (!multirooted) {
 			for (r <- 1 to slen) {
 				gch(1)(r)(0)(1) = logIncrement(gch(1)(r)(0)(1), 
-				-1.0 * res + sch(r)(slen)(1)(1) + Math.log(-1.0 * tkmat(r-1)))
+				-1.0 * res + sch(r)(slen)(1)(1) + log(-1.0 * tkmat(r-1)))
 				gch(r)(slen)(1)(1) = logIncrement(gch(r)(slen)(1)(1), 
-				-1.0 * res + sch(1)(r)(0)(1) + Math.log(-1.0 * tkmat(r-1)))
+				-1.0 * res + sch(1)(r)(0)(1) + log(-1.0 * tkmat(r-1)))
 				gradmat((r-1) * slen) = logIncrement(gradmat((r-1) * slen), 
 				-1.0 * res + sch(1)(r)(0)(1) + sch(r)(slen)(1)(1))
-				println("gradmat(" + ((r-1) * slen) + " = " + gradmat((r-1) * slen))
+				if (verbose) System.err.println("gradmat(" + ((r-1) * slen) + " = " + gradmat((r-1) * slen))
 			}
 		}
 		for (width <- slen to 1 by -1; s <- start to slen) {
 			val t = s + width
 			if (t <= slen) {
 				var gpar = gch(s)(t)(1)(1)
-        println("T = " + t)
-        println("DEBUG:  ogpar1,1 (%d) = %f".format(t,gpar))
-        //				println("gpar(%d) = %f".format(t,gpar))
+        // System.err.println("T = " + t)
+        // System.err.println("DEBUG:  ogpar1,1 (%d) = %f".format(t,gpar))
+        //				System.err.println("gpar(%d) = %f".format(t,gpar))
 				for (r <- s+1 to t) {
 					gch(s)(r)(1)(0) = logIncrement(gch(s)(r)(1)(0), gpar + sch(r)(t)(1)(1))							
 					gch(r)(t)(1)(1) = logIncrement(gch(r)(t)(1)(1), gpar + sch(s)(r)(1)(0))		
-					println("gch(s)(r)(1)(0) update to %f when r = %d".format(gch(s)(r)(1)(0), r))
-					println("gch(r)(t)(1)(1) update to %f when r = %d".format(gch(r)(t)(1)(1), r))
+				//	System.err.println("gch(s)(r)(1)(0) update to %f when r = %d".format(gch(s)(r)(1)(0), r))
+				//	System.err.println("gch(r)(t)(1)(1) update to %f when r = %d".format(gch(r)(t)(1)(1), r))
 				}
 				gpar = gch(s)(t)(0)(1)  // this seems to be s,r instead of s,t for some reason
-//				println("s is " + s)
-//				println("t is " + t)
-//				println(gch(2)(25)(1)(1))
-//				println(gch(2)(25)(0)(1))
-				println("DEBUG:  ogpar0,1 (%d) = %f".format(t,gpar))
+//				System.err.println("s is " + s)
+//				System.err.println("t is " + t)
+//				System.err.println(gch(2)(25)(1)(1))
+//				System.err.println(gch(2)(25)(0)(1))
+			//	System.err.println("DEBUG:  ogpar0,1 (%d) = %f".format(t,gpar))
 				for (r <- s until t) {
 					gch(s)(r)(0)(1) = logIncrement(gch(s)(r)(0)(1), gpar + sch(r)(t)(0)(0))							
 					gch(r)(t)(0)(0) = logIncrement(gch(r)(t)(0)(0), gpar + sch(s)(r)(0)(1))			
-					println("gch(%d)(%d)(0)(1) update to %f when r = %d".format(s, r, gch(s)(r)(0)(1), r))
-					println("gch(%d)(%d)(0)(0) update to %f when r = %d".format(r, t, gch(r)(t)(0)(0), r))
+				//	System.err.println("gch(%d)(%d)(0)(1) update to %f when r = %d".format(s, r, gch(s)(r)(0)(1), r))
+				//	System.err.println("gch(%d)(%d)(0)(0) update to %f when r = %d".format(r, t, gch(r)(t)(0)(0), r))
 				}
 				if (s > 0) {
 					var lgrad = Double.NegativeInfinity
 					val lkid = scala.math.log(-1.0 * tkmat(t * slen + s-1))
 					gpar = gch(s)(t)(0)(0)
-					println("lkid gpar when s > 0 = " + gpar)
+				//	System.err.println("lkid gpar when s > 0 = " + gpar)
 					for (r <- s until t) {
 						gch(s)(r)(1)(1) 	= logIncrement(gch(s)(r)(1)(1), gpar + sch(r+1)(t)(0)(1) + lkid)
 						gch(r+1)(t)(0)(1) = logIncrement(gch(r+1)(t)(0)(1), gpar + sch(s)(r)(1)(1) + lkid)
 						lgrad = logIncrement(lgrad, gpar + sch(s)(r)(1)(1) + sch(r+1)(t)(0)(1))		
-						println("gch(%d)(%d)(1)(1) update to %f when r = %d".format(s, r, gch(s)(r)(1)(1), r))
-						println("gch(%d)(%d)(0)(1) update to %f when r = %d".format(r+1, t, gch(r+1)(t)(0)(1), r))
-						println("lgrad when r = %d is %f".format(r, lgrad))
+					//	System.err.println("gch(%d)(%d)(1)(1) update to %f when r = %d".format(s, r, gch(s)(r)(1)(1), r))
+					//	System.err.println("gch(%d)(%d)(0)(1) update to %f when r = %d".format(r+1, t, gch(r+1)(t)(0)(1), r))
+					//	System.err.println("lgrad when r = %d is %f".format(r, lgrad))
 					}
-          System.err.println("DEBUG: lgrad = " + lgrad)
+        //  System.err.println("DEBUG: lgrad = " + lgrad)
 					gradmat((s-1) * slen + t-1) = logIncrement(gradmat((s-1) * slen + t-1), lgrad)
 				}
 				val rkid = Math.log(-1.0 * tkmat(s * slen + t-1))
-        println("DEBUG:  rkid = " + rkid)
+       // System.err.println("DEBUG:  rkid = " + rkid)
 				var rgrad = Double.NegativeInfinity
 				gpar = gch(s)(t)(1)(0)
-				println("gpar final = " + gpar)
+				//System.err.println("gpar final = " + gpar)
 				for (r <- s until t) {
 					gch(s)(r)(1)(1)   = logIncrement(gch(s)(r)(1)(1), gpar + sch(r+1)(t)(0)(1) + rkid)
 					gch(r+1)(t)(0)(1) = logIncrement(gch(r+1)(t)(0)(1), gpar + sch(s)(r)(1)(1) + rkid)
 					rgrad = logIncrement(rgrad, gpar + sch(s)(r)(1)(1) + sch(r+1)(t)(0)(1))												
-					println("rgrad when r = %d is %f".format(r, rgrad))
+				//	System.err.println("rgrad when r = %d is %f".format(r, rgrad))
 				}
 				gradmat((t-1) * slen + s) = logIncrement(gradmat((t-1) * slen + s), rgrad)
 			}
 		}
-		for (i <- 0 until slen * slen) { gradmat(i) = Math.exp(gradmat(i)); println("DEBUG fradmat %d = %f".format(i, gradmat(i))) }
+		for (i <- 0 until slen * slen) { gradmat(i) = Math.exp(gradmat(i)); System.err.println("DEBUG fradmat %d = %f".format(i, gradmat(i))) }
 		return abs(res) //slog(res, 1)
 	}
 

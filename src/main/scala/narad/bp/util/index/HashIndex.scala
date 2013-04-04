@@ -11,8 +11,8 @@ import scala.math._
 class HashIndex(n: Int=1000000000) extends Index[String] {
 
   def index(s: String): Int = {
-    val h = abs(s.hashCode)
-    if (h < n) h else h % n
+    val h = abs(s.hashCode)+1
+    if (h < n) h else (h % n)+1
   }
 
   def indexOf(s: String) = index(s)

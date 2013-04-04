@@ -3,20 +3,19 @@ import narad.bp.inference._
 import narad.bp.structure._
 import narad.bp.util._
 import java.io.{File, FileWriter}
-//import scala.collection.mutable.{ArrayBuffer, HashMap}
-//import scala.util.matching._
 
-class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
+class Optimizer(model: Model, val options: OptimizerOptions) extends BeliefPropagation with SGDUpdates {
   val debugsort  = """un\(([0-9]+),([0-9]+)\)""".r
-  var RATES = Array[Double]()
+  var groups = Array[Int]()
 
-  def train(data: Iterable[PotentialExample], options: OptimizerOptions): Array[Double] = {
+  def train(data: Iterable[PotentialExample]): Array[Double] = {
 		var params = init(options.INIT_FILE, options.PV_SIZE)
+    val NAN_CHECK = true
     val verbose = options.VERBOSE
     val time = options.TIME
-    RATES = Array.fill[Double](params.size)(1.0)
     System.err.print("About to calculate data size: ")
     val DATA_SIZE = data.size
+    groups = calculateGroups(data, params.size)
     System.err.println(DATA_SIZE + ".")
 
 		for (i <- 0 until options.TRAIN_ITERATIONS) {
@@ -52,10 +51,8 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
           batchCount*options.BATCH_SIZE, DATA_SIZE, (System.currentTimeMillis() - batchTime) / 1000.0, numPots, numIters))
 
         val avg = average(updates)
-//        println("Size of update = " + avg.size)
-  //      println(-1.0 * options.RATE)
-				params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * DATA_SIZE))
-	//			params = updateParamsWithVariableRate(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * DATA_SIZE))
+        params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * DATA_SIZE))
+
         if (verbose) System.err.println("PVV")
 				if (verbose) params.zipWithIndex.foreach {case(p,pi) => System.err.println(pi + "\t" + p)}
 			}
@@ -69,11 +66,25 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
         }
         System.err.println("     Avg time of %fs per example.".format(etime / DATA_SIZE))
       }
+      if (NAN_CHECK) assert(!params.exists(_.isNaN), "NaN discovered at end of iteration %d.".format(i))
       writeParams(params, i, options)
 		}
 		params
 	}
-	
+
+  def calculateGroups(data: Iterable[PotentialExample], size: Int): Array[Int] = {
+    val g = new Array[Int](size)
+    for (p <- data; k <- p.features.keys; f <- p.features(k)) {
+      if (f.group > g(f.idx)) g(f.idx) = f.group
+    }
+//    System.err.println(g.zipWithIndex.mkString("\n"))
+    g
+  }
+
+  def regularizationGroups : Array[Int] = {
+    groups
+  }
+
 	def order[T](data: Iterable[T], i: Int, options: OptimizerOptions): Iterator[Iterable[T]] = {
 		val bsize = if (i+1 == options.TRAIN_ITERATIONS && options.AVERAGE_LAST) data.size else options.BATCH_SIZE
 		if (options.TRAIN_ORDER == "RANDOM") {
@@ -84,7 +95,7 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 		} 
 	}
 	
-	def test(data: Iterable[PotentialExample], options: OptimizerOptions) {
+	def test(data: Iterable[PotentialExample]) {
 		val params = init(options.INIT_FILE, options.PV_SIZE)
     for (ex <- data) {
 			val instance = model.constructFromExample(ex, params)
@@ -93,22 +104,12 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 		}
 	}
 		
-	def updateParams(old: Array[Double], update: ParameterUpdate, scale: Double = -1.0, variance: Double = 0.0): Array[Double] = {
-    val pv = old.clone()
+	def updateParams(pv: Array[Double], update: ParameterUpdate, scale: Double = -1.0, variance: Double = 0.0): Array[Double] = {
     for (i <- update.keys) {
 			pv(i) += update(i) * scale
 		}
 		pv
 	}
-
-  def updateParamsWithVariableRate(old: Array[Double], update: ParameterUpdate, scale: Double = -1.0, variance: Double = 0.0): Array[Double] = {
-    val pv = old.clone()
-    for (i <- update.keys) {
-      pv(i) += update(i) * scale * RATES(i)
-      RATES(i) *= 0.995
-    }
-    pv
-  }
 
 	def writeParams(params: Array[Double], currIter: Int, options: OptimizerOptions) {
 		val modelOutputFile = options.MODEL_OUTPUT_FILE
@@ -125,13 +126,14 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 	def init(initFile: String, pvsize: Int = 0): Array[Double] = {
 		assert(initFile != null || pvsize > 0, "Both init.file and pv.size are not specified correctly.")
     if (initFile == null || !(new File(initFile)).exists) {
-			Array.fill(pvsize+1)(0.0)
+			Array.fill(pvsize+2)(0.0)
 		}
 		else {
+      System.err.println("Initializing model from previous file.")
 			val params1 = io.Source.fromFile(initFile).getLines().map(_.toDouble).toArray
 			val params = Array[Double](0.0) ++ params1
 			if (pvsize > params.size) {
-				params ++ Array.fill(pvsize - (params.size+1))(0.0)
+				params ++ Array.fill(pvsize - (params.size+2))(0.0)
 			}
 			else {
 				params
@@ -142,8 +144,6 @@ class Optimizer(model: Model) extends BeliefPropagation with SGDUpdates {
 	def average(updateIter: Iterable[ParameterUpdate]): ParameterUpdate = {
     val updates = updateIter.toSeq
 		var update = updates(0)
-//    println(update.size)
-//    System.err.println("updates size = " + updates.size)
 		for (i <- 1 until updates.size if updates(i) != null) {
 			update = update.add(updates(i))
 		}
@@ -180,13 +180,18 @@ trait TrainingOptions {
 
   def TIME: Boolean
 
+  def GROUP1_REG: Double
+
+  def GROUP2_REG: Double
+
+  def GROUP3_REG: Double
 }
 
 
 
-class HiddenStructureOptimizer(model: HiddenStructureModel) extends Optimizer(model) {
+class HiddenStructureOptimizer(model: Model, options: OptimizerOptions) extends Optimizer(model, options) {
 
-  override def train(data: Iterable[PotentialExample], options: OptimizerOptions): Array[Double] = {
+  override def train(data: Iterable[PotentialExample]): Array[Double] = {
     var params = init(options.INIT_FILE, options.PV_SIZE)
     val verbose = options.VERBOSE
     for (i <- 0 until options.TRAIN_ITERATIONS) {
@@ -197,12 +202,24 @@ class HiddenStructureOptimizer(model: HiddenStructureModel) extends Optimizer(mo
           val instance1 = model.constructFromExample(ex, params)
           val instance2 = model.constructFromExample(ex.clone(), params)
 
+          model.observedVariableFactors(instance2.graph.factors).foreach(_.clamp())
+
+          infer(instance1, options)
+          infer(instance2, options)
+          val denMargs = instance1.marginals
+          val numMargs = instance2.marginals
+
+          /*
+          val instance1 = model.constructFromExample(ex, params)
+          val instance2 = model.constructFromExample(ex.clone(), params)
+
           instance2.observedVariableFactors.foreach(_.clamp())
 
           infer(instance1, options)
           infer(instance2, options)
           val denMargs = instance1.marginals
           val numMargs = instance2.marginals
+           */
 
           for (i <- 0 until denMargs.size) {
             denMargs(i).value = denMargs(i).value - numMargs(i).value
@@ -247,7 +264,7 @@ class HiddenStructureOptimizer(model: HiddenStructureModel) extends Optimizer(mo
 
 
 
-class UpgradeableOptimizer(model: Model) extends Optimizer(model) {
+class UpgradeableOptimizer(model: Model, options: OptimizerOptions) extends Optimizer(model, options) {
 
 }
 

@@ -2,54 +2,57 @@ package narad.bp.util
 import narad.bp.structure.Potential
 import scala.collection.mutable.{ArrayBuffer, HashMap, Map => MMap}
 import scala.util.matching.Regex
-import collection.mutable
 
 
-class PotentialReader(filename: String) extends mutable.Iterable[PotentialExample] {
-	private val POTS_PATTERN  = """([^\t]+)\t(\+?)([0-9=\\. ]+)""".r
+class PotentialReader(filename: String) extends Iterable[PotentialExample] {
+	private val POTS_PATTERN  = """([^\t]+)\t(\+?)([0-9=\\. :]+)""".r
 	private val ATTRIBUTE_PATTERN  = """@([^ ]+)\t(.*)""".r
 	private val END_PATTERN   = """[ \n\t]*""".r
   private val FEAT_PATTERN1 = """([0-9]+)""".r
   private val FEAT_PATTERN2 = """([0-9]+)=([\\.0-9]*)""".r
-  private val FEAT_PATTERN3 = """([0-9]+:)([0-9]+)""".r
-  private val FEAT_PATTERN4 = """([0-9]+:)?([0-9]+)=?([\\.0-9]*)""".r
+  private val FEAT_PATTERN3 = """([0-9]+):([0-9]+)""".r
+  private val FEAT_PATTERN4 = """([0-9]+)?:?([0-9]+)=?([\\.0-9]*)""".r
 
   def iterator: Iterator[PotentialExample] = {
-		val lines = scala.io.Source.fromFile(filename).getLines()
+    val lines = if (filename.endsWith(".gz")) {
+       new GZipReader(filename)
+    }
+    else {
+      scala.io.Source.fromFile(filename).getLines()
+    }
 		Iterator.continually(read(lines)).takeWhile(_ != null)
 	}
 
   def read(lines: Iterator[String]) : PotentialExample = {
-      val map  = MMap[String, String]()
-      val pots = new ArrayBuffer[Potential]
-      val feats = new HashMap[String, Array[Feature]]
-      try {
-           Iterator.continually(lines.next()).takeWhile{line => lines.hasNext && !matches(line, END_PATTERN)}.foreach { line =>
-//             if (line.contains("slen")) System.err.println("...reading line..." + line)
-             line match {
-            case ATTRIBUTE_PATTERN(name, value) => {
-              map(name) = value
+    val map  = MMap[String, String]()
+    val pots = new ArrayBuffer[Potential]
+    val feats = new HashMap[String, Array[Feature]]
+    try {
+      Iterator.continually(lines.next()).takeWhile{line => lines.hasNext && !matches(line, END_PATTERN)}.foreach { line =>
+        line match {
+          case ATTRIBUTE_PATTERN(name, value) => {
+            map(name) = value
+          }
+          case POTS_PATTERN(name, label, featstr) => {
+            val pfeats = featstr.split(" ").flatMap { _ match {
+              case "0" => None
+              case FEAT_PATTERN1(fidx) =>  Some(new Feature(fidx.toInt, 1.0, 0))
+              case FEAT_PATTERN2(fidx, value) => Some(new Feature(fidx.toInt, value.toDouble, 0))
+              case FEAT_PATTERN3(group, fidx) => Some(new Feature(fidx.toInt, 1.0, group.toInt))
+              case FEAT_PATTERN4(group, fidx, value) =>  Some(new Feature(fidx.toInt, value.toDouble, group.toInt))
             }
-            case POTS_PATTERN(name, label, featstr) => {
-              val pfeats = featstr.split(" ").flatMap { _ match {
-                case "0" => None
-                case FEAT_PATTERN1(fidx) =>  Some(new Feature(fidx.toInt, 1.0, 0))
-                case FEAT_PATTERN2(fidx, value) => Some(new Feature(fidx.toInt, value.toDouble, 0))
-                case FEAT_PATTERN3(group, fidx) => Some(new Feature(fidx.toInt, 1.0, group.toInt))
-                case FEAT_PATTERN4(group, fidx, value) =>  Some(new Feature(fidx.toInt, value.toDouble, group.toInt))
-              }
-              }
-              pots += new Potential(0.0, name, label == "+")
-              feats(name) = pfeats
             }
+            pots += new Potential(0.0, name, label == "+")
+            feats(name) = pfeats
           }
         }
       }
-      catch { case e: Exception => {} }
+    }
+    catch { case e: Exception => { } } // Catches the read on an empty iterator / is normal behavior for now
 
- //   System.err.println("Pot Reader pots.size = " + pots.size)
+    //   System.err.println("Pot Reader pots.size = " + pots.size)
     if (pots.size > 0) {
-      return new PotentialExample(map, pots.toArray, feats)
+      return new PotentialExample(map, pots, feats)
     }
     else {
       return null.asInstanceOf[PotentialExample]
@@ -78,6 +81,15 @@ class PotentialReader(filename: String) extends mutable.Iterable[PotentialExampl
 }
 
 
+object PotentialReader {
+
+  def main(args: Array[String]) {
+    val pr = new PotentialReader(args(0))
+    for (pe <- pr) {
+      println(pe)
+    }
+  }
+}
 
 
 

@@ -10,7 +10,9 @@ abstract class Model {  // wrapper around Parser, DependencyParser, and SRLModel
 
 	def decode(instance: ModelInstance)
 
-	def options: ModelOptions	
+	def options: ModelOptions
+
+  def observedVariableFactors(factors: Array[Factor]): Array[Factor] = Array()
 	
 }
 
@@ -22,12 +24,20 @@ abstract class FactorGraphModel extends Model with InferenceOrder {
 	
 }
 
-abstract class HiddenStructureModel extends Model {
+trait HiddenStructure {
 
+//  def hiddenVariableFactors(factors: Array[Factor]): Array[Factor]
+
+  def observedVariableFactors(factors: Array[Factor]): Array[Factor]
+
+}
+
+abstract class HiddenStructureModel extends Model with HiddenStructure {
+/*
   def constructFromExample(ex: PotentialExample, pv: Array[Double]): HiddenStructureModelInstance
 
   def decode(instance: HiddenStructureModelInstance)
-
+*/
 }
 
 abstract class HiddenStructureModelInstance(override val graph: FactorGraph, override val ex: PotentialExample) extends ModelInstance(graph, ex) {

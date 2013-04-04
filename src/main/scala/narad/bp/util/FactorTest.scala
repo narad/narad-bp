@@ -66,6 +66,9 @@ class TesterOptions(args: Array[String]) extends ArgParser(args) with OptimizerO
   def DIFF_THRESHOLD = getDouble("--diff.threshold", 0.001)
   def INFERENCE_ITERATIONS = getInt("--inference.iterations", 10)
   def VERBOSE = getBoolean("--verbose", false)
+  def GROUP1_REG = getDouble("--group.reg.1", 1.0)
+  def GROUP2_REG = getDouble("--group.reg.2", 1.0)
+  def GROUP3_REG = getDouble("--group.reg.3", 1.0)
 }
 
 

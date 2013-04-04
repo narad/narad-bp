@@ -1,6 +1,7 @@
 package narad.bp.util.index
 
-import collection.mutable
+import collection.mutable.HashMap
+import java.io.FileWriter
 
 /**
  * Created with IntelliJ IDEA.
@@ -12,19 +13,29 @@ import collection.mutable
  * Indexes start at 1.
  */
 class ArrayIndex[T: Manifest](init: Int=100000000, grow: Int=10000000) extends Index[T] {
-  val indexed = new mutable.HashMap[T, Int]()
+  val indexed = new HashMap[T, Int]()
   val list = new Array[T](init)
   var max = 0
+  var frozen = false
+
+  def freeze = frozen = true
+
+  def unfreeze = frozen = false
 
   def index(t: T): Int = {
     if (indexed.contains(t)) {
       indexed(t)
     }
     else {
-      max += 1
-      list(max) = t
-      indexed(t) = max
-      max
+      if (frozen) {
+        return 0
+      }
+      else {
+        max += 1
+        list(max) = t
+        indexed(t) = max
+        max
+      }
     }
   }
 
@@ -38,4 +49,11 @@ class ArrayIndex[T: Manifest](init: Int=100000000, grow: Int=10000000) extends I
     if (i < max) Option(list(i)) else None
   }
 
+  def writeToFile(filename: String) {
+    val out = new FileWriter(filename)
+    for (e <- 1 to max) {
+      out.write(list(e) + "\n")
+    }
+    out.close()
+  }
 }
