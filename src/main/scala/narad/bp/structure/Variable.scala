@@ -5,6 +5,8 @@ import scala.math._
 
 class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, name) {
 
+//  override def clone = new Variable(idx, name, arity)
+
 	def computeMessages(graph: FactorGraph, damp: Double, verbose: Boolean = false): Double = {
 //		if (verbose) println("Computing variable message for %s.".format(name))
 //		println("damp = " + damp)
@@ -33,11 +35,25 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 
 	def getBeliefs(graph: FactorGraph): Array[(String, Double)] = {
 		val res = new Array[Double](arity)
-		for (e <- graph.edgesFrom(this))
-		for (i <- 0 until res.size) res(i) *= e.f2v(i)
+    for (i <- 0 until res.size) res(i) = 1.0
+    println("arity = " + arity)
+		for (e <- graph.edgesFrom(this)) {
+      println(" <-- " + e.toString)
+      println("  " + e.f2v.mkString(", "))
+      for (i <- 0 until res.size) {
+        res(i) *= e.f2v(i)
+      }
+    }
+    println("res = " + res.mkString(" "))
 		val sum = res.foldLeft(0.0)(_+_)
+    println("sum = " + sum)
 		val beliefs = res.map(_ / sum)
-		return Array((name, beliefs(1)))
+//    if (arity == 2) {
+//      Array((name, beliefs(1)))
+//    }
+//    else {
+      return beliefs.map(b => (name, b)) //Array((name, beliefs))
+//    }
 	}
 
 	def logOdds(graph: FactorGraph): Double = {

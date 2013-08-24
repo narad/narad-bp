@@ -10,15 +10,15 @@ import java.util.zip.GZIPOutputStream
  * Time: 10:23 AM
  * To change this template use File | Settings | File Templates.
  */
-class GZipWriter(filename: String) {
+class GZipWriter(filename: String) extends java.io.FileWriter(filename){
   val stream = new FileOutputStream(filename);
   val out = new OutputStreamWriter(new GZIPOutputStream(stream), "UTF-8")
 
-  def close() {
+  override def close() {
     out.close()
   }
 
-  def write(str: String) {
+  override def write(str: String) {
     out.write(str)
   }
 }

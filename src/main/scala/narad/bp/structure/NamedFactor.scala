@@ -9,14 +9,14 @@ class Named1Factor(idx: Int, name: String, pots: Array[Potential]) extends Facto
   def arity = 1
 
 	def computeMessages(fg: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
-		val edge = fg.edgesFrom(this).toArray.first
+		val edge = fg.edgesFrom(this).toArray.head
 		edge.f2v = dampen(edge.f2v, pots.map(_.value), damp)
 		return 0.0
 	}
 	
 	
 	def getBeliefs(graph: FactorGraph): Array[Potential] = {
-		val beliefs = elementMultiplication(graph.edgesFrom(this).toArray.first.v2f, pots)
+		val beliefs = elementMultiplication(graph.edgesFrom(this).toArray.head.v2f, pots)
 		normalize(beliefs)
 		return beliefs
 	}

@@ -27,7 +27,7 @@ class SegmentationFactor(idx: Int, name: String, slen: Int, maxSeg: Int) extends
 						if (m(0) == 0) {
 							if (verbose) System.err.println("pushing")
 							score(i)(w) = 0
-							pegs += Tuple(i, w)
+							pegs += ((i, w))
 						}
             grad(i)(w) = Double.NegativeInfinity
 					}
@@ -85,17 +85,15 @@ class SegmentationFactor(idx: Int, name: String, slen: Int, maxSeg: Int) extends
 					val k = end.toInt
 					val w = k-i
 					if (w <= slen) {
-//						for (i <- 0 to (slen-w)) {
 							val m = Array[Double](1-Math.exp(score(i)(w) + grad(i)(w)), Math.exp(grad(i)(w)))
 //								truncate(1-Math.exp(score(i)(w) + grad(i)(w))), 
 //								truncate(Math.exp(grad(i)(w))))
 							if (score(i)(w) == Double.NegativeInfinity) m(1) = 0
-//							if (verbose) System.err.println("SEG-OUT for (%d,%d) = [%s]".format(i,w, m.mkString(", ")))
-							edge.f2v = dampen(edge.f2v, m, damp)										
+							edge.f2v = dampen(edge.f2v, m, damp)
 //						}
 					}
 				}
-				case _ => System.err.println("ERROR IN CKY FACTOR - CONNECTED VAR (%score) DOES NOT MATCH PATTERN!".format(edge.variable.name))
+				case _ => System.err.println("ERROR IN SEG FACTOR - CONNECTED VAR (%score) DOES NOT MATCH PATTERN!".format(edge.variable.name))
 			}
 		}
 
@@ -106,7 +104,6 @@ class SegmentationFactor(idx: Int, name: String, slen: Int, maxSeg: Int) extends
         System.err.println("SEG-OUT for (%d,%d) = [%s]".format(i,w, m.mkString(", ")))
       }
     }
-
 		return 0
 	}
 	

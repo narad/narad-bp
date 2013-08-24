@@ -29,6 +29,31 @@ object FactorFactory {
 		return new NandFactor(idx, name, pots)
 	}
 
+  def createNand3Factor(idx: Int, name: String, pot: Potential): Nand3Factor = {
+    val pots = Array.ofDim[Potential](2,2,2)
+    if (pot == Double.PositiveInfinity) {
+      pots(0)(0)(0) = new Potential(0.0, "n/a", false)
+      pots(0)(0)(1) = new Potential(0.0, "n/a", false)
+      pots(0)(1)(0) = new Potential(0.0, "n/a", false)
+      pots(0)(1)(1) = new Potential(0.0, "n/a", false)
+      pots(1)(0)(0) = new Potential(0.0, "n/a", false)
+      pots(1)(0)(1) = new Potential(0.0, "n/a", false)
+      pots(1)(1)(0) = new Potential(0.0, "n/a", false)
+      pots(1)(1)(1) = new Potential(1.0, pot.name, pot.isCorrect)
+    }
+    else {
+      pots(0)(0)(0) = new Potential(1.0, "n/a", false)
+      pots(0)(0)(1) = new Potential(1.0, "n/a", false)
+      pots(0)(1)(0) = new Potential(1.0, "n/a", false)
+      pots(0)(1)(1) = new Potential(1.0, "n/a", false)
+      pots(1)(0)(0) = new Potential(1.0, "n/a", false)
+      pots(1)(0)(1) = new Potential(1.0, "n/a", false)
+      pots(1)(1)(0) = new Potential(1.0, "n/a", false)
+      pots(1)(1)(1) = pot
+    }
+    return new Nand3Factor(idx, name, pots)
+  }
+
 // NEEDS VERIFICATION
 	def createImpliesFactor(idx: Int, name: String, pot: Potential): ImpliesFactor = {
 		val pots = Array.ofDim[Potential](2,2)
@@ -51,8 +76,8 @@ object FactorFactory {
     val pots = Array.ofDim[Potential](2,2)
       pots(0)(0) = new Potential(1.0, "n/a", false)
       pots(0)(1) = new Potential(1.0, "n/a", false)
-      pots(1)(0) = new Potential(0.0, "n/a", false)
-      pots(1)(1) = new Potential(1.0, "n/a", false)
+      pots(1)(0) = new Potential(1.0, "n/a", false)
+      pots(1)(1) = new Potential(0.0, "n/a", false)
     return new HardLogicFactor(idx, name, pots)
   }
 

@@ -1,5 +1,7 @@
 package narad.bp.structure
 import scala.collection.mutable.{ArrayBuffer, HashMap, Queue}
+import collection.mutable
+import java.io.{File, FileWriter}
 
 trait FactorGraph {
 	def factors: Array[Factor]
@@ -10,6 +12,8 @@ trait FactorGraph {
 	def potentialBeliefs: Array[Potential]
 	def variableBeliefs: Array[(String, Double)]
   def toBuilder: FactorGraphBuilder
+  def writeGraph(filename: String)
+  def copy: FactorGraph
 }
 
 object FactorGraph {
@@ -100,28 +104,30 @@ object FactorGraph {
       fg
     }
 
-		def propagate(iterations: Int, dampStart: Double, dampRate: Double, threshold: Double): Boolean = {
-			val queue = new Queue[MessageNode]
-			queue ++= nodelist
+    def writeGraph(filename: String) {
+      val file = new File(filename)
+      file.getParentFile().mkdirs()
 
-			var i = 0; 
-			var damp = dampStart; 
-			var converged = false
-			var maxDiff = -1.0
-			while (i < iterations) {
-				maxDiff = -1
-				for (v <- queue) {
-					var diff = v.computeMessages(this, damp)      //FG_[*nodep].node->compute_messages(*nodep, FG_, damp)
-					if ( diff > maxDiff ) maxDiff = diff				
-				}
-				if ( iterations > 0 && maxDiff < threshold ) {
-					return true
-				}
-				if ( iterations > 1 ) damp *= dampRate			
-			}
-			return false
-		}
-	}
+      val out = new FileWriter(file)
+      out.write("graph G {\n")
+      for (f <- factors) {
+        out.write("%s [style=filled, fillcolor=black, shape=box, fontcolor=white];\n".format(clean(f.name)))
+        for (v <- successors(f)) {
+          out.write("%s -- %s;\n".format(clean(f.name), clean(v.name)))
+        }
+      }
+      out.write("}")
+      out.close
+    }
+
+    def copy: FactorGraph = {
+      fromAdjacencyMatrix(nodelist.clone, dependencies.clone)
+    }
+
+    def clean(str: String): String = {
+      str.replaceAll(",|\\(|\\)", "")
+    }
+  }
 }
 
 
@@ -131,6 +137,52 @@ object FactorGraph {
 
 
 
+
+
+
+
+
+
+
+
+     /*
+     digraph G {
+2: main -> parse -> execute;
+3: main -> init;
+4: main -> cleanup;
+5: execute -> make_string;
+6: execute -> printf
+7: init -> make_string;
+8: main -> printf;
+9: execute -> compare;
+10: }
+      */
+
+
+
+
+/*
+		def propagate(iterations: Int, dampStart: Double, dampRate: Double, threshold: Double): Boolean = {
+			val queue = new Queue[MessageNode]
+			queue ++= nodelist
+			var i = 0;
+			var damp = dampStart;
+			var converged = false
+			var maxDiff = -1.0
+			while (i < iterations) {
+				maxDiff = -1
+				for (v <- queue) {
+					var diff = v.computeMessages(this, damp)      //FG_[*nodep].node->compute_messages(*nodep, FG_, damp)
+					if ( diff > maxDiff ) maxDiff = diff
+				}
+				if ( iterations > 0 && maxDiff < threshold ) {
+					return true
+				}
+				if ( iterations > 1 ) damp *= dampRate
+			}
+			return false
+		}
+ */
 
 
 

@@ -2,6 +2,8 @@ package narad.bp.structure
 
 case class Potential(var value: Double, name: String, label: Boolean) { 
 
+  def copy = Potential(value, name, label)
+
 	def isCorrect: Boolean = label
 	
 	override def equals(that: Any): Boolean = that match { 

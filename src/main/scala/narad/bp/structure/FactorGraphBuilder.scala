@@ -14,6 +14,10 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 	val vnames = new HashMap[String, Int]
 
 
+  def getVariableIndex(varname: String): Int = {
+    nodes.indexWhere(_.name == varname)
+  }
+
   def expandEdges(i: Int) = {
     while (edges.size <= i) edges += new ArrayBuffer
   }
@@ -64,17 +68,13 @@ class FactorGraphBuilder(pots: Array[Potential]) {
     val idx1 = vnames.getOrElse(varname1, -1)
     val idx2 = vnames.getOrElse(varname2, -1)
     assert (idx1 != -1 && idx2 != -1, "Var not found in addNamed2")
+    addTable2FactorByIndex(idx1, idx2, arity1, arity2, facname, fpots)
+  }
+
+  def addTable2FactorByIndex(idx1: Int, idx2: Int, arity1: Int=0, arity2: Int=0, facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
     assert(arity1 > 0 && arity2 > 0, "Table2 arities are not defined.")
-
- //   System.err.println("arity 1 = " + arity1)
- //   System.err.println("arity 2 = " + arity2)
     val npots = resize2(fpots, arity1, arity2)
- //   System.err.println("created a %d x %d for %d pots.".format(npots.size, npots(0).size, fpots.size))
- //   for (i <- 0 until npots.size; j <- 0 until npots(i).size) {
- //     System.err.println("  [%d,%d] = %s".format(i, j, npots(i)(j).toString))
- //   }
     nodes += new Table2Factor(ncount, facname, npots)
-
     while (edges.size < nodes.size) edges += new ArrayBuffer
     edges(nodes.size-1) += idx1
     edges(nodes.size-1) += idx2
@@ -132,6 +132,18 @@ class FactorGraphBuilder(pots: Array[Potential]) {
   }
 
 
+  def addHardFactor(varname1: String, varname2: String, facname: String = "fac%d".format(fcount), fpots: Array[Array[Potential]]): Int = {
+    val idx1 = vnames.getOrElse(varname1, -1)
+    val idx2 = vnames.getOrElse(varname2, -1)
+    assert (idx1 != -1 && idx2 != -1, "Var not found in addNamed2")
+    nodes += new HardLogicFactor(ncount, facname, fpots)
+
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    edges(nodes.size-1) += idx1
+    edges(nodes.size-1) += idx2
+    fcount += 1
+    return ncount-1
+  }
 
   def addUnaryFactor(varname: String, facname: String = "fac%d".format(fcount), pot: Potential): Int = {
     val idx = vnames.getOrElse(varname, -1)
@@ -227,6 +239,16 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		return ncount-1
 	}
 
+  def addNand3FactorByIndex(idx1: Int, idx2: Int, idx3: Int, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
+    nodes += FactorFactory.createNand3Factor(ncount, facname, fpot)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    edges(nodes.size-1) += idx1
+    edges(nodes.size-1) += idx2
+    edges(nodes.size-1) += idx3
+    fcount += 1
+    return ncount-1
+  }
+
 	def addEPUFactor(pattern1: Regex, pattern2: Regex, arity: Int, facname: String = "fac%d".format(fcount)): Int = {
 		nodes += FactorFactory.createEPUFactor(ncount, facname, arity)
 		while (edges.size < nodes.size) edges += new ArrayBuffer
@@ -288,6 +310,16 @@ class FactorGraphBuilder(pots: Array[Potential]) {
     return ncount-1
   }
 
+  def addExactly1Factor(dPattern: Regex, facname: String = "fac%d".format(fcount)): Int = {
+    nodes += new Exactly1Factor(ncount, facname)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    for (idx <- 0 until nodes.size if matches(nodes(idx).name, dPattern)) {
+      edges(nodes.size-1) += idx
+    }
+    fcount += 1
+    return ncount-1
+  }
+
 	def addAtMost1Factor(dPattern: Regex, facname: String = "fac%d".format(fcount)): Int = {
 		nodes += new AtMost1Factor(ncount, facname)
 		while (edges.size < nodes.size) edges += new ArrayBuffer
@@ -339,12 +371,15 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 	def ncount: Int = vcount + fcount
 
 	def toFactorGraph: FactorGraph = {
-		val nmap = nodes.toArray
-		val emap = edges.map(_.toArray).toArray
+		//val nmap = nodes.toArray
+	//	val emap = edges.map(_.toArray.distinct).toArray.distinct
+  //  println(nmap.mkString("\n"))
+  //  println(emap.map(_.mkString(" ")).mkString("\n"))
 //		println("Nodes\n" + nmap.mkString("\n"))
 //		println
 //		println("Edges\n" + emap.map(_.mkString(" ")).mkString("\n"))
-		val graph =  FactorGraph.fromAdjacencyMatrix(nodes.toArray, edges.map(_.toArray).toArray)
+//    val graph =  FactorGraph.fromAdjacencyMatrix(nodes.toArray, edges.map(_.toArray.distinct).toArray)
+    val graph =  FactorGraph.fromAdjacencyMatrix(nodes.toArray, edges.map(_.toArray).toArray)
 		return graph
 	}
 	

@@ -9,6 +9,8 @@ abstract class MessageNode(val idx: Int, val name: String) {
 
   def arity: Int
 
+  //def copy: MessageNode
+
 	def computeMessages(fg: FactorGraph, damp: Double, verbose: Boolean = false): Double
 	
 	def dampen(rev: Array[Double], old: Array[Double], damp: Double): Array[Double] = {
@@ -26,7 +28,8 @@ abstract class MessageNode(val idx: Int, val name: String) {
 			return res
 		}
 	}
-	
+
+  def getName = name
 /*
 	def elementMultiplication(v1: Array[Double], v2: Array[Double]): Array[Double] = {
 		return v1.zip(v2).map(p => p._1 * p._2)

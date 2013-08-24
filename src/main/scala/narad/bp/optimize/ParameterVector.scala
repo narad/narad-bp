@@ -35,9 +35,12 @@ class ParameterUpdate extends HashMap[Int, Double] {
 
 	def add(other: ParameterUpdate): ParameterUpdate = {
 		val npu = new ParameterUpdate
+    println("In parameter update")
 		for (i <- keys) {
+      println("key = " + i)
 			npu(i) = this.getOrElse(i, 0.0) + other.getOrElse(i, 0.0)
 		}
+    println("finished.")
 		npu
 	}
 	

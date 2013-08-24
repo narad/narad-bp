@@ -15,5 +15,7 @@ abstract class Index[T] {
 
   def size: Int
 
+  def writeToFile(filename: String)
+
 }
 

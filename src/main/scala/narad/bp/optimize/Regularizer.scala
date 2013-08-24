@@ -1,5 +1,6 @@
 package narad.bp.optimize
 import collection.mutable.HashMap
+/*
 
 trait Regularizer {}
 
@@ -128,3 +129,4 @@ trait ConfidenceWeightedL1Regularizer extends Regularizer {
 
 
 
+           */

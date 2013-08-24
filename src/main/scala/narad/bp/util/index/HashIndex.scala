@@ -18,4 +18,8 @@ class HashIndex(n: Int=1000000000) extends Index[String] {
   def indexOf(s: String) = index(s)
 
   def size = -1
+
+  def writeToFile(filename: String) = {
+    // Does nothing
+  }
 }

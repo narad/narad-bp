@@ -21,7 +21,7 @@ class Table1Factor(idx: Int, name: String, pots: Array[Potential]) extends Facto
   }
 
   override def clamp() = {
-    pots.foreach {p => if (p.isCorrect) p.value = 1.0 else p.value = 0.0 }
+    pots.foreach(p => if (p.isCorrect) p.value = 1.0 else p.value = 0.0 )
   }
 
 }

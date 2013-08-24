@@ -1,13 +1,30 @@
 package narad.bp.util
 import narad.bp.structure._
-import scala.collection.mutable.{ArrayBuffer, HashMap, Map => MMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 import java.io.FileWriter
 import collection.mutable
 
 
-case class PotentialExample(attributes: MMap[String, String], potentials: ArrayBuffer[Potential], features: HashMap[String, Array[Feature]]){
+class PotentialExample(){
+  val attributes = new HashMap[String, String]()
+  val potentials = new ArrayBuffer[Potential]
+  val features = new HashMap[String, Array[Feature]]
 
-  override def clone() = new PotentialExample(attributes, potentials.map(p => Potential(p.value, p.name, p.label)), features)
+  override def clone(): PotentialExample = {
+    val copy = new PotentialExample()
+    copy.attributes ++= attributes
+    copy.potentials ++= potentials.map(p => Potential(p.value, p.name, p.label))
+    copy.features ++= features
+    copy
+  }
+
+  def += (other: PotentialExample) {
+    attributes ++= other.attributes
+    potentials ++= other.potentials
+    features ++= other.features
+  }
+
+  def isEmpty = potentials.isEmpty
 
   def getAttributes = attributes
 
@@ -25,14 +42,12 @@ case class PotentialExample(attributes: MMap[String, String], potentials: ArrayB
   def exponentiated(pvv: Array[Double]) = {
 		val feats   = getFeatures				
 		val pots    = getPotentials
-//		System.err.println("pots size = " + pots.size)
 		pots.foreach { pot =>
 			pot.value = feats(pot.name).filter(_.idx > 0).foldLeft(0.0){ (sum, feat) =>
 //				System.err.println("DEBUG: sum for %s = %f + %f = %f".format(pot.name, sum, pvv(feat.idx), sum + pvv(feat.idx) * feat.value))
         sum + pvv(feat.idx) * feat.value
 			}
 		}
-//		for (p <- pots) println("pre-exp POTS: " + p)
 		pots.foreach { pot => pot.value = scala.math.exp(pot.value) }
 		pots.toArray
 	}
@@ -55,7 +70,6 @@ case class PotentialExample(attributes: MMap[String, String], potentials: ArrayB
   def writeToFile(out: FileWriter) {
     for (a <- attributes.keys) out.write("@%s\t%s\n".format(a, attributes(a)))
     val batch = true
-//    if (batch) {
       for (p <- potentials) {
         val feats = features(p.name).filter(_.idx > 0).map(_.toString)
         if (feats.isEmpty) {
@@ -65,6 +79,35 @@ case class PotentialExample(attributes: MMap[String, String], potentials: ArrayB
           out.write("%s\t%s%s\n".format(p.name, if (p.isCorrect) "+" else "", feats.mkString(" ")))
         }
       }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
  //   }
 /*
     else {
@@ -86,29 +129,4 @@ case class PotentialExample(attributes: MMap[String, String], potentials: ArrayB
       }
     }
  */
-    out.write("\n")
-  }
-}
 
-case class Feature(idx: Int, value: Double = 1, group: Int=0){
-
-  override def toString = {
-    if (value == 1 && group == 0) {
-      idx.toString
-    } else if (value != 1 && group == 0) {
-      "%d=%f".format(idx, value)
-    }
-    else if (value == 1 && group != 0) {
-      "%d:%d".format(group, idx)
-    }
-    else {
-      "%d:%d=%f".format(group, idx, value)
-    }
-  }
-}
-
-case class StringFeature(name: String, override val value: Double, override val group: Int=0) extends Feature(1, value, group) {
-
-  override def toString = if (value == 1) name.toString else "%s=%f".format(name, value)
-
-}

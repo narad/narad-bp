@@ -13,28 +13,147 @@ trait SGDUpdates extends TrainingMethod {
 			val pv = new ParameterUpdate
 			val beliefs = model.marginals.sortBy(_.name)
 			val feats = model.features
-			val margs = beliefs.map( b => if (b.isCorrect) b.value - 1.0 else b.value) //.map(truncate(_))
-      //System.err.println("POST-BP")
-      //margs.foreach(System.err.println(_))
+			val margs = beliefs.collect{case b if (feats.contains(b.name)) => if (b.isCorrect) b.value - 1.0 else b.value} //.map(truncate(_))
+      assert(!margs.exists(_.isNaN), "NaN Found in BP marginals:\n%s".format(beliefs.mkString("\n")))
+      System.err.println("POST-BP")
+      beliefs.foreach(System.err.println(_))
 			val fnames = beliefs.collect{case p if feats.contains(p.name) => feats(p.name)}
-
-//      System.err.println("DEBUG: Post-BP MARGINALS:")
-//			for (i <- 0 until margs.size) {
-//        System.err.println("DEBUG: post-bp marg[ " + beliefs(i).name + " ] =  " +  margs(i))
-//      }
+      println("FNAMES:")
+      fnames.foreach(System.err.println(_))
+      System.err.println("DEBUG: Post-BP MARGINALS:")
+			for (i <- 0 until margs.size) {
+        System.err.println("DEBUG: post-bp marg[ " + beliefs(i).name + " ] =  " +  margs(i))
+      }
 
 			val updates = margs
 			for (i <- 0 until updates.size if updates(i) != 0.0) {
 				val grad = updates(i) //* rate
 				for (j <- 0 until fnames(i).size) {
 					val fidx = fnames(i)(j).idx
+            val oval = pv.getOrElse(fidx, "-500")
 //					pv(fidx) = pv(fidx) + grad * fnames(i)(j).value
 						pv(fidx) = pv.getOrElse(fidx, 0.0) + grad * fnames(i)(j).value
+            if (pv(fidx).isNaN) {
+              System.err.println("NaN Found in SGD Update:")
+              System.err.println("  fidx = " + fidx)
+              System.err.println("  pv = " + oval)
+              System.err.println("  grad = " + grad)
+              System.err.println("  value = " + fnames(i)(j).value)
+              assert(!pv(fidx).isNaN, "SGD Update produced a NaN.")
+            }
 				}
 			}
 			return pv
 		}
+
+  def hiddenUpdate(instance1: ModelInstance, instance2: ModelInstance, options: OptimizerOptions): ParameterUpdate = {
+    val denMargs = instance1.marginals
+    val numMargs = instance2.marginals
+
+    for (i <- 0 until denMargs.size) {
+      denMargs(i).value = denMargs(i).value - numMargs(i).value
+    }
+    val beliefs = denMargs.sortBy(_.name)
+
+    val rate = options.RATE
+    val pv = new ParameterUpdate
+    val feats = instance1.features
+
+    val margs = beliefs.map(_.value)
+    val fnames = beliefs.collect{case p if feats.contains(p.name) => feats(p.name)}
+    val updates = margs
+    for (i <- 0 until updates.size if updates(i) != 0.0) {
+      val grad = updates(i) //* rate
+      for (j <- 0 until fnames(i).size) {
+        val fidx = fnames(i)(j).idx
+        val oval = pv.getOrElse(fidx, "-500")
+        pv(fidx) = pv.getOrElse(fidx, 0.0) + grad * fnames(i)(j).value
+        if (pv(fidx).isNaN) {
+          System.err.println("NaN Found in SGD Update:")
+          System.err.println("  fidx = " + fidx)
+          System.err.println("  pv = " + oval)
+          System.err.println("  grad = " + grad)
+          System.err.println("  value = " + fnames(i)(j).value)
+          assert(!pv(fidx).isNaN, "SGD Update produced a NaN.")
+        }
+      }
+    }
+    return pv
+  }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /*
+    val rate = options.RATE
+    //System.err.println("rate = " + rate)
+    val pv = new ParameterUpdate
+    val beliefs = model.marginals.sortBy(_.name)
+    val feats = model.features
+    val margs = beliefs.map( b => if (b.isCorrect) b.value - 1.0 else b.value) //.map(truncate(_))
+    assert(!margs.exists(_.isNaN), "NaN Found in BP marginals:\n%s".format(beliefs.mkString("\n")))
+    //System.err.println("POST-BP")
+    //margs.foreach(System.err.println(_))
+    val fnames = beliefs.collect{case p if feats.contains(p.name) => feats(p.name)}
+    //      System.err.println("DEBUG: Post-BP MARGINALS:")
+    //			for (i <- 0 until margs.size) {
+    //        System.err.println("DEBUG: post-bp marg[ " + beliefs(i).name + " ] =  " +  margs(i))
+    //      }
+
+    val updates = margs
+    for (i <- 0 until updates.size if updates(i) != 0.0) {
+      val grad = updates(i) //* rate
+      for (j <- 0 until fnames(i).size) {
+        val fidx = fnames(i)(j).idx
+        //            val oval = pv.getOrElse(fidx, "-500")
+        //					pv(fidx) = pv(fidx) + grad * fnames(i)(j).value
+        pv(fidx) = pv.getOrElse(fidx, 0.0) + grad * fnames(i)(j).value
+        if (pv(fidx).isNaN) {
+          System.err.println("NaN Found in SGD Update:")
+          System.err.println("  fidx = " + fidx)
+          System.err.println("  pv = " + oval)
+          System.err.println("  grad = " + grad)
+          System.err.println("  value = " + fnames(i)(j).value)
+          assert(!pv(fidx).isNaN, "SGD Update produced a NaN.")
+        }
+      }
+    }
+    return pv
+  }
+}
+               */
+
+
+
+
+
+
+
+
+
+
 
 
 

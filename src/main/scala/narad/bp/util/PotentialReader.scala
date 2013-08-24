@@ -24,14 +24,15 @@ class PotentialReader(filename: String) extends Iterable[PotentialExample] {
 	}
 
   def read(lines: Iterator[String]) : PotentialExample = {
-    val map  = MMap[String, String]()
-    val pots = new ArrayBuffer[Potential]
-    val feats = new HashMap[String, Array[Feature]]
+//    val map  = MMap[String, String]()
+//    val pots = new ArrayBuffer[Potential]
+//    val feats = new HashMap[String, Array[Feature]]
+    val pe = new PotentialExample()
     try {
       Iterator.continually(lines.next()).takeWhile{line => lines.hasNext && !matches(line, END_PATTERN)}.foreach { line =>
         line match {
           case ATTRIBUTE_PATTERN(name, value) => {
-            map(name) = value
+            pe.attributes(name) = value
           }
           case POTS_PATTERN(name, label, featstr) => {
             val pfeats = featstr.split(" ").flatMap { _ match {
@@ -40,10 +41,9 @@ class PotentialReader(filename: String) extends Iterable[PotentialExample] {
               case FEAT_PATTERN2(fidx, value) => Some(new Feature(fidx.toInt, value.toDouble, 0))
               case FEAT_PATTERN3(group, fidx) => Some(new Feature(fidx.toInt, 1.0, group.toInt))
               case FEAT_PATTERN4(group, fidx, value) =>  Some(new Feature(fidx.toInt, value.toDouble, group.toInt))
+              }
             }
-            }
-            pots += new Potential(0.0, name, label == "+")
-            feats(name) = pfeats
+            pe.addPotential(new Potential(0.0, name, label == "+"), pfeats)
           }
         }
       }
@@ -51,8 +51,9 @@ class PotentialReader(filename: String) extends Iterable[PotentialExample] {
     catch { case e: Exception => { } } // Catches the read on an empty iterator / is normal behavior for now
 
     //   System.err.println("Pot Reader pots.size = " + pots.size)
-    if (pots.size > 0) {
-      return new PotentialExample(map, pots, feats)
+//    if (pots.size > 0) {
+    if (!pe.isEmpty) {
+      return pe //new PotentialExample(map, pots, feats)
     }
     else {
       return null.asInstanceOf[PotentialExample]
@@ -66,12 +67,19 @@ class PotentialReader(filename: String) extends Iterable[PotentialExample] {
   override def size = {
     var pcount = 0
     var lastHadText = false
-    for (line <- scala.io.Source.fromFile(filename).getLines()) {
-      if (lastHadText && line.trim.size == 0) {
+    val lines = if (filename.endsWith(".gz")) {
+      new GZipReader(filename)
+    }
+    else {
+      scala.io.Source.fromFile(filename).getLines()
+    }
+    for (line <- lines) {
+      val trimmedSize = line.trim.size
+      if (lastHadText && trimmedSize == 0) {
         pcount += 1
         lastHadText = false
       }
-      else if (line.trim.size > 0) {
+      else if (trimmedSize > 0) {
         lastHadText = true
       }
     }
@@ -104,6 +112,45 @@ object PotentialReader {
 
 
 
+/*
+          case POTS_PATTERN(name, label, featstr) => {
+            val pfeats = featstr.split(" ").flatMap { _ match {
+              case "0" => None
+              case FEAT_PATTERN1(fidx) =>  Some(new Feature(fidx.toInt, 1.0, 0))
+              case FEAT_PATTERN2(fidx, value) => Some(new Feature(fidx.toInt, value.toDouble, 0))
+              case FEAT_PATTERN3(group, fidx) => Some(new Feature(fidx.toInt, 1.0, group.toInt))
+              case FEAT_PATTERN4(group, fidx, value) =>  Some(new Feature(fidx.toInt, value.toDouble, group.toInt))
+              }
+            }
+            pots += new Potential(0.0, name, label == "+")
+            feats(name) = pfeats
+          }
+ */
+
+
+/*
+    try {
+      Iterator.continually(lines.next()).takeWhile{line => lines.hasNext && !matches(line, END_PATTERN)}.foreach { line =>
+        line match {
+          case ATTRIBUTE_PATTERN(name, value) => {
+            map(name) = value
+          }
+          case POTS_PATTERN(name, label, featstr) => {
+            val pfeats = featstr.split(" ").flatMap { _ match {
+              case "0" => None
+              case FEAT_PATTERN1(fidx) =>  Some(new Feature(fidx.toInt, 1.0, 0))
+              case FEAT_PATTERN2(fidx, value) => Some(new Feature(fidx.toInt, value.toDouble, 0))
+              case FEAT_PATTERN3(group, fidx) => Some(new Feature(fidx.toInt, 1.0, group.toInt))
+              case FEAT_PATTERN4(group, fidx, value) =>  Some(new Feature(fidx.toInt, value.toDouble, group.toInt))
+              }
+            }
+            pots += new Potential(0.0, name, label == "+")
+            feats(name) = pfeats
+          }
+        }
+      }
+    }
+ */
 /*
 
 //  def hasNext : Boolean = lines.hasNext

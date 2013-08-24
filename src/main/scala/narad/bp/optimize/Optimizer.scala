@@ -4,21 +4,24 @@ import narad.bp.structure._
 import narad.bp.util._
 import java.io.{File, FileWriter}
 
-class Optimizer(model: Model, val options: OptimizerOptions) extends BeliefPropagation with SGDUpdates {
+class Optimizer(model: Model[Scorable], val options: OptimizerOptions) extends BeliefPropagation with SGDUpdates {
   val debugsort  = """un\(([0-9]+),([0-9]+)\)""".r
   var groups = Array[Int]()
 
   def train(data: Iterable[PotentialExample]): Array[Double] = {
-		var params = init(options.INIT_FILE, options.PV_SIZE)
-    val NAN_CHECK = true
+    var params = init(data, options.INIT_FILE, options.PV_SIZE)
+    val lastUpdated = new Array[Int](params.size)
     val verbose = options.VERBOSE
     val time = options.TIME
     System.err.print("About to calculate data size: ")
+    val readStart = System.currentTimeMillis()
     val DATA_SIZE = data.size
-    groups = calculateGroups(data, params.size)
     System.err.println(DATA_SIZE + ".")
-
-		for (i <- 0 until options.TRAIN_ITERATIONS) {
+    //    println(" time to calculate data = " + (System.currentTimeMillis() - readStart) / 1000.0)
+    println("PV vec size = " + params.size)
+    System.err.println("Beginning training with batch size of %d".format(options.BATCH_SIZE))
+    var t = 1
+    for (i <- 0 until options.TRAIN_ITERATIONS) {
       var batchCount = 0
       var startTime = System.currentTimeMillis()
       for (batch <- order(data, i, options)) {
@@ -26,58 +29,172 @@ class Optimizer(model: Model, val options: OptimizerOptions) extends BeliefPropa
         var batchTime = System.currentTimeMillis()
         var numPots = 0
         var numIters = 0
-        val updates = new Array[ParameterUpdate](options.BATCH_SIZE)
-        var batchIndex = 0
-        batch.par.foreach { ex =>
-          val instance = model.constructFromExample(ex, params)
-          val beliefs = instance.marginals
-          numPots += ex.potentials.size
-
-          if (verbose) System.err.println("DEBUG: GRAPH")
-          if (verbose) System.err.println(instance.graph)
-          if (verbose) System.err.println("DEBUG: POST-EXP / BEFORE BP:")
+        val updates = new Array[ParameterUpdate](batch.size)
+        batch.zipWithIndex.par.foreach { case(ex, bi) =>
+          val instance1 = model.constructFromExample(ex, params)
+          val margs = instance1.marginals
           if (verbose) {
-            //            if (beliefs(0).name.contains("un")) beliefs.sortBy{ p => val debugsort(s, e) = p.name; (5000 * s.toInt) + e.toInt }.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
-            //              beliefs.sortBy(_.name).foreach(b => System.err.println("DEBUG: BEFORE: " + b))
-            beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+            System.err.println("DEBUG: Post-BP MARGINALS:")
+            for (i <- 0 until margs.size) {
+              System.err.println("DEBUG: pre-bp marg[ " + margs(i).name + " ] =  " +  margs(i))
+            }
           }
-          val (converged, inferIters) = infer(instance, options)
-          numIters += inferIters
-//          updates(i % options.BATCH_SIZE) = update(instance, options)
-          updates(batchIndex) = update(instance, options)
-          batchIndex += 1
-				}
-        if (time) System.err.print("\rTRAINING: ...processing example %d/%d [Last took %fs. for %d pots. in %d BP iters]      ".format(
-          batchCount*options.BATCH_SIZE, DATA_SIZE, (System.currentTimeMillis() - batchTime) / 1000.0, numPots, numIters))
+          val hv = instance1.hiddenVariableFactors
+          if (options.PRINT_GRAPH) instance1.graph.writeGraph("graphs/%d_%d.dot".format(i, t))
+          numPots += ex.potentials.size
+          if (hv.isEmpty) {
+            val (converged, inferIters) = infer(instance1, options)
+            if (verbose) {
+              for (b <- instance1.graph.variableBeliefs) {
+                println("Var Belief:  " + b)
+              }
+            }
+            numIters += inferIters
+            updates(bi) = update(instance1, options)
+          }
+          else {
+            println("Hidden Update")
+            val instance2 = model.constructFromExample(ex.clone(), params)
 
-        val avg = average(updates)
-        params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * DATA_SIZE))
+            instance2.graph.factors.foreach{ f =>
+              if (!hv.contains(f)) {
+                if (verbose) println("...clamping %s".format(f.name))
+                f.clamp()
+              }
+            }
+            if (verbose) {
+              System.err.println("DEBUG: Clamped Post-BP MARGINALS:")
+              val hmargs = instance2.marginals
+              for (i <- 0 until hmargs.size) {
+                System.err.println("DEBUG: pre-bp marg[ " + hmargs(i).name + " ] =  " +  hmargs(i))
+              }
+            }
 
-        if (verbose) System.err.println("PVV")
-				if (verbose) params.zipWithIndex.foreach {case(p,pi) => System.err.println(pi + "\t" + p)}
-			}
+
+
+            val (converged1, inferIters1) = infer(instance1, options)
+            println("Clamped BP")
+            val (converged2, inferIters2) = infer(instance2, options)
+
+            numIters += inferIters1
+//            println("den / non-clamped iters: " + inferIters1)
+//            println("num / clamped iters: " + inferIters2)
+            updates(bi) = hiddenUpdate(instance1, instance2, options)
+          }
+        }
+        if (time) {
+          System.err.print("\rTRAINING: ...processing example %d/%d [Last took %fs. for %d pots. in %d BP iters per batch]      ".format(
+            batchCount*options.BATCH_SIZE, DATA_SIZE, (System.currentTimeMillis() - batchTime) / 1000.0, numPots, numIters))
+        }
+        if (options.AVERAGE_BATCH) {
+          val avg = average(updates)
+          assert(false, "batch averaging not implemented at the moment - crashes in parallel.")
+        }
+        else {
+          for (update <- updates) {
+            val variance = options.VARIANCE * DATA_SIZE
+            val scale = -1.0 * options.RATE
+            val reg = 1 - (-scale / variance)
+            for (idx <- update.keys) {
+              val oval = params(idx)
+              params(idx) = params(idx) * math.pow(reg, t - lastUpdated(idx)) // * reg
+              val postreg = params(idx)
+              params(idx) += update(idx) * scale
+              lastUpdated(idx) = t
+              if (options.CHECK_FOR_NAN && params(idx).isNaN) {
+                System.err.println("NaN Found:")
+                System.err.println("Updating param ID=" + idx)
+                System.err.println("Original val = " + oval)
+                System.err.println("Post reg = " + postreg)
+                System.err.println("Update = " + update(idx))
+                System.err.println("Scale = " + scale +"; Reg = " + reg)
+                System.err.println("Last Updated " + lastUpdated(idx) + " updates ago.")
+              }
+            }
+            t += 1
+          }
+        }
+        if (options.CHECK_FOR_NAN) assert(!params.exists(_.isNaN), "NaN discovered at end of iteration %d.".format(i))
+        //        if (verbose) System.err.println("PVV")
+        //				if (verbose) params.zipWithIndex.foreach {case(p,pi) => System.err.println(pi + "\t" + p)}
+      }
       if (time) {
         val etime = (System.currentTimeMillis() - startTime) / 1000.0
         if (etime > 60) {
-          System.err.println("\rTRAINING: Finished Training Iteration %d [%fm.]                                       ".format(i, etime/60))
+          System.err.println("\rTRAINING: Finished Training Iteration %d [%fm.]                                         ".format(i, etime/60))
         }
         else {
-          System.err.println("\rTRAINING: Finished Training Iteration %d [%fs.]                                       ".format(i, etime))
+          System.err.println("\rTRAINING: Finished Training Iteration %d [%fs.]                                         ".format(i, etime))
         }
         System.err.println("     Avg time of %fs per example.".format(etime / DATA_SIZE))
       }
-      if (NAN_CHECK) assert(!params.exists(_.isNaN), "NaN discovered at end of iteration %d.".format(i))
-      writeParams(params, i, options)
-		}
-		params
-	}
 
+      val ii = i + options.TRAIN_ITERATIONS_OFFSET
+      if (options.PRINT_TRAIN_ACCURACY) {
+        println("Train Accuracy at Iteration %d:".format(ii))
+        println(evaluate(data, params))
+      }
+      if (options.PRINT_DEV_ACCURACY) {
+        println("Dev Accuracy at Iteration %d:".format(ii))
+        println(evaluate(new PotentialReader(options.DEV_DATA_FILE), params))
+      }
+      writeParams(params, options.MODEL_OUTPUT_FILE, ii, options.TRAIN_ITERATIONS + options.TRAIN_ITERATIONS_OFFSET)
+    }
+    params
+  }
+
+
+
+  //          val avg = average(updates)
+  //          params = updateParams(params, avg, scale=(-1.0 * options.RATE), variance=(options.VARIANCE * data.size))
+  //				}
+
+  /*
+            if (verbose) System.err.println("DEBUG: GRAPH")
+            if (verbose) System.err.println(instance.graph)
+            if (verbose) System.err.println("DEBUG: POST-EXP / BEFORE BP:")
+            if (verbose) {
+              beliefs.foreach(b => System.err.println("DEBUG: BEFORE: " + b))
+            }
+  */
+
+  def evaluate(data: Iterable[PotentialExample], params: Array[Double]): EvalContainer = {
+    val first = data.head
+    val instance = model.constructFromExample(first, params)
+    infer(instance, options)
+    val ec = model.decode(instance).score(model.fromPotentialExample(first, params))
+
+    val eval = data.foldLeft(ec){ case(eval, ex) =>
+      val instance = model.constructFromExample(ex, params)
+      infer(instance, options)
+      val ec2 = model.decode(instance).score(model.fromPotentialExample(ex, params))
+      ec2.combine(eval)
+    }
+    eval
+  }
+
+  def evaluateExample(params: Array[Double], ex: PotentialExample): (Int, Int) = {
+    val instance = model.constructFromExample(ex, params)
+    infer(instance, options)
+    var correct = 0
+    var incorrect = 0
+    for (b <- instance.marginals) {
+      if ((b.value > 0.5 && b.isCorrect) || (b.value <= 0.5 && !b.isCorrect)) {
+        correct += 1
+      }
+      else {
+        incorrect += 1
+      }
+    }
+    (correct, incorrect)
+  }
+
+  // A very computationally heavy setup
   def calculateGroups(data: Iterable[PotentialExample], size: Int): Array[Int] = {
     val g = new Array[Int](size)
     for (p <- data; k <- p.features.keys; f <- p.features(k)) {
       if (f.group > g(f.idx)) g(f.idx) = f.group
     }
-//    System.err.println(g.zipWithIndex.mkString("\n"))
     g
   }
 
@@ -85,110 +202,162 @@ class Optimizer(model: Model, val options: OptimizerOptions) extends BeliefPropa
     groups
   }
 
-	def order[T](data: Iterable[T], i: Int, options: OptimizerOptions): Iterator[Iterable[T]] = {
-		val bsize = if (i+1 == options.TRAIN_ITERATIONS && options.AVERAGE_LAST) data.size else options.BATCH_SIZE
-		if (options.TRAIN_ORDER == "RANDOM") {
-			util.Random.shuffle(data.toIterable).toIterator.grouped(bsize)
-		}
-		else {
-			data.grouped(bsize)
-		} 
-	}
-	
-	def test(data: Iterable[PotentialExample]) {
-		val params = init(options.INIT_FILE, options.PV_SIZE)
+  def order[T](data: Iterable[T], i: Int, options: OptimizerOptions): Iterator[Iterable[T]] = {
+    val bsize = if (i+1 == options.TRAIN_ITERATIONS && options.AVERAGE_LAST) data.size else options.BATCH_SIZE
+    if (options.TRAIN_ORDER == "RANDOM") {
+      util.Random.shuffle(data.toIterable).toIterator.grouped(bsize)
+    }
+    else {
+      data.grouped(bsize)
+    }
+  }
+
+  def test(data: Iterable[PotentialExample]) {
+    val initFile = options.INIT_FILE
+    assert(initFile != null && new File(initFile).exists(), "Model file for testing is not specified or does not exist.")
+    val params = init(data, initFile, options.PV_SIZE)
     for (ex <- data) {
-			val instance = model.constructFromExample(ex, params)
-			infer(instance, options)
-			model.decode(instance)
-		}
-	}
-		
-	def updateParams(pv: Array[Double], update: ParameterUpdate, scale: Double = -1.0, variance: Double = 0.0): Array[Double] = {
+      val instance = model.constructFromExample(ex, params)
+      infer(instance, options)
+      model.decode(instance)
+    }
+  }
+
+  def updateParams(pv: Array[Double], update: ParameterUpdate, scale: Double = -1.0, variance: Double = 0.0): Array[Double] = {
     for (i <- update.keys) {
-			pv(i) += update(i) * scale
-		}
-		pv
-	}
+      pv(i) += update(i) * scale
+    }
+    pv
+  }
 
-	def writeParams(params: Array[Double], currIter: Int, options: OptimizerOptions) {
-		val modelOutputFile = options.MODEL_OUTPUT_FILE
-		val i = currIter + 1
-		val file = if (i == options.TRAIN_ITERATIONS) 
-			modelOutputFile + ".pv" 
-		else 
-			modelOutputFile + "." + i + ".pv"
-		val out = new FileWriter(file)
-		for (p <- params.tail) out.write(p + "\n")
-		out.close()
-	}
-	
-	def init(initFile: String, pvsize: Int = 0): Array[Double] = {
-		assert(initFile != null || pvsize > 0, "Both init.file and pv.size are not specified correctly.")
-    if (initFile == null || !(new File(initFile)).exists) {
-			Array.fill(pvsize+2)(0.0)
-		}
-		else {
-      System.err.println("Initializing model from previous file.")
-			val params1 = io.Source.fromFile(initFile).getLines().map(_.toDouble).toArray
-			val params = Array[Double](0.0) ++ params1
-			if (pvsize > params.size) {
-				params ++ Array.fill(pvsize - (params.size+2))(0.0)
-			}
-			else {
-				params
-			}
-		}
-	}
+  def writeParams(params: Array[Double], modelOutputFile: String, currIter: Int, maxIter: Int) { // options: OptimizerOptions) {
+  //		val modelOutputFile = options.MODEL_OUTPUT_FILE
+  val i = currIter + 1
+    val file = if (i == maxIter) //options.TRAIN_ITERATIONS)
+      modelOutputFile + ".pv"
+    else
+      modelOutputFile + "." + i + ".pv"
+    val out = new FileWriter(file)
+    for (p <- params.tail) out.write(p + "\n")
+    out.close()
+  }
 
-	def average(updateIter: Iterable[ParameterUpdate]): ParameterUpdate = {
+  def init(data: Iterable[PotentialExample], initFile: String, pvsize: Int = 0): Array[Double] = {
+    if (initFile != null && new File(initFile).exists()) {
+      System.err.println("Initializing parameter vector from previous file.")
+      val params1 = io.Source.fromFile(initFile).getLines().map(_.toDouble).toArray
+      val params = Array[Double](0.0) ++ params1
+      if (pvsize > params.size) {
+        params ++ Array.fill(pvsize - (params.size+2))(0.0)
+      }
+      else {
+        params
+      }
+    }
+    else if (pvsize > 0) {
+      System.err.println("Initializing parameter vector from pv.size parameter.")
+      Array.fill(pvsize+2)(0.0)
+    }
+    else {
+      System.err.println("Initializing parameter vector from data.")
+      var max = 0
+      for (pe <- data) {
+        for (pots <- pe.getFeatures) {
+          for (f <- pots._2) {
+            if (f.idx > max) max = f.idx
+          }
+        }
+      }
+      Array.fill(max+2)(0.0)
+    }
+  }
+
+
+  def average(updateIter: Iterable[ParameterUpdate]): ParameterUpdate = {
     val updates = updateIter.toSeq
-		var update = updates(0)
-		for (i <- 1 until updates.size if updates(i) != null) {
-			update = update.add(updates(i))
-		}
-		if (updates.size > 1) {
+    var update = updates(0)
+    for (i <- 1 until updates.size if updates(i) != null) {
+      println("is update null? " + (update == null).toString)
+      println("is updates(" + i + ") null?" + (updates(i) == null).toString)
+      update = update.add(updates(i))
+    }
+    if (updates.size > 1) {
       for (k <- update.keys) update(k) = update(k) / updates.size
     }
     update
-	}
-}
-		
-		
-		
-trait OptimizerOptions extends TrainingOptions with InferenceOptions {}
-
-trait TrainingOptions {
-
-  def AVERAGE_LAST: Boolean
-
-  def BATCH_SIZE: Int
-
-  def INIT_FILE: String
-
-  def MODEL_OUTPUT_FILE: String
-
-  def TRAIN_ORDER: String
-
-  def PV_SIZE: Int
-
-  def RATE: Double
-
-  def TRAIN_ITERATIONS: Int
-
-  def VARIANCE: Double
-
-  def TIME: Boolean
-
-  def GROUP1_REG: Double
-
-  def GROUP2_REG: Double
-
-  def GROUP3_REG: Double
+  }
 }
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+    assert(initFile != null || pvsize > 0, "Both init.file and pv.size are not specified correctly.")
+    if (initFile == null || !(new File(initFile)).exists) {
+      Array.fill(pvsize+2)(0.0)
+    }
+    else {
+      System.err.println("Initializing model from previous file.")
+      val params1 = io.Source.fromFile(initFile).getLines().map(_.toDouble).toArray
+      val params = Array[Double](0.0) ++ params1
+      if (pvsize > params.size) {
+        params ++ Array.fill(pvsize - (params.size+2))(0.0)
+      }
+      else {
+        params
+      }
+    }
+  }
+  */
+
+
+/*
+    overfitting opt method
+
+        val variance = options.VARIANCE * DATA_SIZE
+        val scale = -1.0 * options.RATE
+        val reg = 1 - (-scale / variance)
+ //       println("scale = " + scale)
+//        println("reg = " + reg)
+     //   for (i <- 0 until params.size) {
+      //    params(i) = params(i) * reg
+     //   }
+        for (idx <- avg.keys) {
+ //         println("update mult = " + (t - lastUpdated(idx)))
+          params(idx) = params(idx) * math.pow(reg, t - lastUpdated(idx)) // * reg
+          params(idx) += avg(idx) * scale //  * (t - lastUpdated(idx))
+          lastUpdated(idx) = t
+        }
+        t += 1
+ */
+
+/*
 class HiddenStructureOptimizer(model: Model, options: OptimizerOptions) extends Optimizer(model, options) {
 
   override def train(data: Iterable[PotentialExample]): Array[Double] = {
@@ -258,16 +427,17 @@ class HiddenStructureOptimizer(model: Model, options: OptimizerOptions) extends 
   }
 }
 
+             */
 
 
-
-
+                                       /*
 
 
 class UpgradeableOptimizer(model: Model, options: OptimizerOptions) extends Optimizer(model, options) {
 
 }
 
+                                         */
 
 
 
@@ -298,8 +468,32 @@ class UpgradeableOptimizer(model: Model, options: OptimizerOptions) extends Opti
 
 
 
+                //      val PRINT_TRAIN_ACCURACY = true
+//      val PRINT_DEV_ACCURACY = true
 
-
+/*
+      if (options.PRINT_TRAIN_ACCURACY) {
+        val sums = data.foldLeft((0,0)){ case(pair, ex) =>
+          val (correct, incorrect) = evaluateExample(params, ex)
+          (pair._1 + correct, pair._2 + incorrect)
+        }
+        System.err.println("Training Accuracy: %f".format(sums._1 / (sums._1 + sums._2 * 1.0)))
+      }
+      if (options.PRINT_DEV_ACCURACY) {
+        model.getType match {
+          case t: Scorable => {
+            System.err.println("Dev Accuracy for Scoreable!")
+          }
+          case _ => {
+            val sums = new PotentialReader(options.DEV_DATA_FILE).foldLeft((0,0)){ case(pair, ex) =>
+              val (correct, incorrect) = evaluateExample(params, ex)
+              (pair._1 + correct, pair._2 + incorrect)
+            }
+            System.err.println("Dev Accuracy: %f".format(sums._1 / (sums._1 + sums._2 * 1.0)))
+          }
+        }
+      }
+     */
 
 
 

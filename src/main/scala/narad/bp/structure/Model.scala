@@ -4,19 +4,25 @@ import narad.bp.util.PotentialExample
 import scala.util.matching.Regex
 import narad.bp.util.index.Index
 
-abstract class Model {  // wrapper around Parser, DependencyParser, and SRLModel that could take in an example and create a model instance
-		
+abstract class Model[+T] {
+
 	def constructFromExample(ex: PotentialExample, pv: Array[Double]): ModelInstance
 
-	def decode(instance: ModelInstance)
+	def decode(instance: ModelInstance): T
 
 	def options: ModelOptions
 
   def observedVariableFactors(factors: Array[Factor]): Array[Factor] = Array()
-	
+
+  def fromPotentialExample(ex: PotentialExample, pv: Array[Double]): T = {
+    val instance = constructFromExample(ex, pv)
+    instance.marginals.foreach { b => if (b.isCorrect) b.value = 1.0 else b.value = 0.0 }
+    decode(instance)
+  }
+
 }
 
-abstract class FactorGraphModel extends Model with InferenceOrder {
+abstract class FactorGraphModel[T] extends Model[T] with InferenceOrder {
 	
 //	def graph: FactorGraph
 	
@@ -32,7 +38,8 @@ trait HiddenStructure {
 
 }
 
-abstract class HiddenStructureModel extends Model with HiddenStructure {
+/*
+abstract class HiddenStructureModel[T] extends Model[T] with HiddenStructure {
 /*
   def constructFromExample(ex: PotentialExample, pv: Array[Double]): HiddenStructureModelInstance
 
@@ -48,22 +55,30 @@ abstract class HiddenStructureModelInstance(override val graph: FactorGraph, ove
 
 }
 
-class ModelInstance(val graph: FactorGraph, val ex: PotentialExample) extends InferenceOrder {
+*/
 
-	def features = ex.getFeatures
-	
-	def marginals = graph.potentialBeliefs.filter(_.name != "null")
-
-}
 
 trait ModelOptions {}
+
+
+
+class ModelInstance(val graph: FactorGraph, val ex: PotentialExample) extends InferenceOrder {
+
+  override def clone = new ModelInstance(graph.copy, ex)
+
+  def features = ex.getFeatures
+
+  def marginals = graph.potentialBeliefs.filter(_.name != "null")
+
+  def isExact = false
+
+  def hiddenVariableFactors = Array[Factor]()
+
+}
 
 trait UpgradeableTo[T <: ModelInstance] {
 
   def upgrade(ex: ModelInstance, dict: Index[String]): T
 
 }
-
-
-
 

@@ -3,6 +3,8 @@ import scala.math._
 
 abstract class Factor(idx: Int, name: String) extends MessageNode(idx, name) { //}, potential: FactorPotential) extends MessageNode(idx, name) {
 
+  //def copy: Factor
+
   def clamp() { System.err.println("Clamping %s is not supported.".format(name)) }
 
   def peg() { System.err.println("Pegging %s is not supported.".format(name)) }
@@ -52,6 +54,8 @@ abstract class Factor(idx: Int, name: String) extends MessageNode(idx, name) { /
 class UnaryFactor(idx: Int, name: String, var pots: Array[Potential]) extends Factor(idx, name) {  //, new UnaryFactorPotential(pots)) {
 
   def arity = 1
+
+  override def clone = new UnaryFactor(idx, name, pots.map(_.copy))
 
   def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
     if (verbose) println("Computing message in Factor %s.".format(name))

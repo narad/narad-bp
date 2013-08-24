@@ -42,6 +42,44 @@ class AtMost1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, new
 }
 
 
+class Exactly1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, new UnaryFactorPotential(Array[Double]())) {
+
+  def arity = 10
+
+  def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
+    var z = 0.0
+    var trues = 0
+    if (verbose) println("computing message for AtMost1 %s".format(name))
+    for (edge <- graph.edgesFrom(this)) {
+      val in = edge.v2f
+      z += in(1) / in(0)
+      if (in(0) == 0) trues += 1
+    }
+    if (verbose) println("Z = " + z + " and trues = " + trues)
+
+    var count = 0
+    for (edge <- graph.edgesFrom(this)) {
+      val in = edge.v2f
+      var mess = Array(z - in(1) / in(0), 1.0)
+      if (trues == 1) {
+        if (in(0) == 0) {
+          mess = Array(0.0, 1.0)
+        }
+        else {
+          mess = Array(1.0, 0.0)
+        }
+      }
+      edge.f2v = dampen(edge.f2v, mess, damp)
+    }
+    return 0.0
+  }
+
+  def getBeliefs(graph: FactorGraph): Array[Potential] = {
+    return Array[Potential]()
+  }
+}
+
+
 class IsAtMost1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, new UnaryFactorPotential(Array[Double]())) {
 
   def arity = 10
@@ -56,17 +94,20 @@ class IsAtMost1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, n
 		for (edge <- graph.edgesFrom(this)) {
 			val in = edge.v2f
 			if (count == 0) {
-				if (verbose) println("first message from " + edge.variable.name + " = " + in(0) + "/" + in(1))
+				//if (verbose)
+     //     println("first message from " + edge.variable.name + " = " + in(0) + "/" + in(1))
 				z = in(0) / in(1)				
 			}
 			else {
-				if (verbose) println("+= " + in(1) + "/" + in(0))
+				//if (verbose)
+ //         println("+= " + in(1) + "/" + in(0) + " from " + edge.variable.name)
 				z += in(1) / in(0)
 				if (in(0) == 0) trues += 1				
 			}
 			count += 1
 		}
-		if (verbose) println("Z = " + z + " and trues = " + trues)
+		//if (verbose)
+ //     println("Z = " + z + " and trues = " + trues)
 		count = 0
 		for (edge <- graph.edgesFrom(this)) {
 			val in = edge.v2f
@@ -80,8 +121,10 @@ class IsAtMost1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, n
 				else {
 					Array(1.0, z - in(0) / in(1))
 				}
-				if (verbose) println("step 1 mess = " + mess.mkString(", "))
-				if (verbose) println("-->" + edge.variable.name)
+				//if (verbose)
+  //        println("step 1 mess = " + mess.mkString(", "))
+				// if (verbose)
+  //        println("-->" + edge.variable.name)
 				edge.f2v = dampen(edge.f2v, mess, damp)				
 			}
 			else {
@@ -94,7 +137,8 @@ class IsAtMost1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, n
 				else {
 					Array(z - in(1) / in(0), 1.0)
 				}
-				if (verbose) println("step 2 mess = " + mess.mkString(", "))
+				//if (verbose)
+ //         println("step 2 mess = " + mess.mkString(", "))
 				edge.f2v = dampen(edge.f2v, mess, damp)
 			}
 			count += 1
@@ -133,6 +177,36 @@ class NandFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends 
   override def isCorrect = pots(1)(1).isCorrect
 }
 
+
+class Nand3Factor(idx: Int, name: String, pots: Array[Array[Array[Potential]]]) extends Table3Factor(idx, name, pots) {
+
+
+  override def getBeliefs(graph: FactorGraph): Array[Potential] = {
+    val b = super.getBeliefs(graph)
+    val sum = b.foldLeft(0.0)(_+_.value)
+    val rpots = b.filter(_.name != "n/a")
+    assert(rpots.size == 1, "Did not find expected number of pots (1) in NandFactor.")
+    val rpot = rpots(0)
+    rpot.value = rpot.value / sum
+    return Array(rpot)  // pots[name_] = a(1,1) / sum(a);
+  }
+
+  override def peg = {
+    pots(0)(0)(0).value = 0.0
+    pots(0)(0)(1).value = 0.0
+    pots(0)(1)(0).value = 0.0
+    pots(0)(1)(1).value = 0.0
+    pots(1)(0)(0).value = 0.0
+    pots(1)(0)(1).value = 0.0
+    pots(1)(1)(0).value = 0.0
+    pots(1)(1)(1).value = 1.0
+  }
+
+  override def clamp() = if (isCorrect) peg
+
+  override def isCorrect = pots(1)(1)(1).isCorrect
+}
+
 class ImpliesFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends Table2Factor(idx, name, pots) {
 
 
@@ -153,6 +227,7 @@ class ImpliesFactor(idx: Int, name: String, pots: Array[Array[Potential]]) exten
 		pots(1)(1).value = 0.0
 	}
 }
+
 
 class HardLogicFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends Table2Factor(idx, name, pots) {
 
