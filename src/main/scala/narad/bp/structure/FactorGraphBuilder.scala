@@ -64,35 +64,22 @@ class FactorGraphBuilder(pots: Array[Potential]) {
     return ncount-1
   }
 
-  def addTable2Factor(varname1: String, varname2: String, arity1: Int=0, arity2: Int=0, facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
+  def addTable2Factor(varname1: String, varname2: String, arity1: Int=0, arity2: Int=0,
+                      facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
     val idx1 = vnames.getOrElse(varname1, -1)
     val idx2 = vnames.getOrElse(varname2, -1)
     assert (idx1 != -1 && idx2 != -1, "Var not found in addNamed2")
     addTable2FactorByIndex(idx1, idx2, arity1, arity2, facname, fpots)
   }
 
-  def addTable2FactorByIndex(idx1: Int, idx2: Int, arity1: Int=0, arity2: Int=0, facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
+  def addTable2FactorByIndex(idx1: Int, idx2: Int, arity1: Int=0, arity2: Int=0,
+                             facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
     assert(arity1 > 0 && arity2 > 0, "Table2 arities are not defined.")
     val npots = resize2(fpots, arity1, arity2)
     nodes += new Table2Factor(ncount, facname, npots)
     while (edges.size < nodes.size) edges += new ArrayBuffer
     edges(nodes.size-1) += idx1
     edges(nodes.size-1) += idx2
-    fcount += 1
-    return ncount-1
-  }
-
-  def addTable3FactorByMatrix(varname1: String, varname2: String, varname3: String,
-                      facname: String = "fac%d".format(fcount), fpots: Array[Array[Array[Potential]]]): Int = {
-    val idx1 = vnames.getOrElse(varname1, -1)
-    val idx2 = vnames.getOrElse(varname2, -1)
-    val idx3 = vnames.getOrElse(varname3, -1)
-    assert (idx1 != -1 && idx2 != -1 && idx3 != -1, "Var not found in addTable3")
-    nodes += new Table3Factor(ncount, facname, fpots)
-    while (edges.size < nodes.size) edges += new ArrayBuffer
-    edges(nodes.size-1) += idx1
-    edges(nodes.size-1) += idx2
-    edges(nodes.size-1) += idx3
     fcount += 1
     return ncount-1
   }
@@ -117,6 +104,34 @@ class FactorGraphBuilder(pots: Array[Potential]) {
     edges(nodes.size-1) += idx1
     edges(nodes.size-1) += idx2
     edges(nodes.size-1) += idx3
+    fcount += 1
+    return ncount-1
+  }
+
+  def addTable3FactorByMatrix(varname1: String, varname2: String, varname3: String,
+                              facname: String = "fac%d".format(fcount), fpots: Array[Array[Array[Potential]]]): Int = {
+    val idx1 = vnames.getOrElse(varname1, -1)
+    val idx2 = vnames.getOrElse(varname2, -1)
+    val idx3 = vnames.getOrElse(varname3, -1)
+    assert (idx1 != -1 && idx2 != -1 && idx3 != -1, "Var not found in addTable3")
+    nodes += new Table3Factor(ncount, facname, fpots)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    edges(nodes.size-1) += idx1
+    edges(nodes.size-1) += idx2
+    edges(nodes.size-1) += idx3
+    fcount += 1
+    return ncount-1
+  }
+
+  def addTable3FactorByIndex(vidx1: Int, vidx2: Int, vidx3: Int, arity1: Int, arity2: Int, arity3: Int,
+                             facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
+    assert(arity1 > 0 && arity2 > 0 && arity3 > 0, "Table2 arities are not defined.")
+    val npots = resize3(fpots, arity1, arity2, arity3)
+    nodes += new Table3Factor(ncount, facname, npots)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    edges(nodes.size-1) += vidx1
+    edges(nodes.size-1) += vidx2
+    edges(nodes.size-1) += vidx3
     fcount += 1
     return ncount-1
   }
@@ -212,8 +227,8 @@ class FactorGraphBuilder(pots: Array[Potential]) {
   }
 
 
-	def addImpliesFactor(pattern1: Regex, pattern2: Regex, facname: String = "fac%d".format(fcount), fpots: Array[Potential]): Int = {
-		nodes += FactorFactory.createImpliesFactor(ncount, facname, fpots(0))
+	def addImpliesFactor(pattern1: Regex, pattern2: Regex, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
+		nodes += FactorFactory.createImpliesFactor(ncount, facname, fpot)
 		while (edges.size < nodes.size) edges += new ArrayBuffer
 		for (i <- 0 until nodes.size-1) {
 			if (matches(nodes(i).name, pattern1) || matches(nodes(i).name, pattern2)) {
@@ -223,6 +238,18 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		fcount += 1
 		return ncount-1
 	}
+
+  def addImpliesFactorByName(name1: String, name2: String, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
+    nodes += FactorFactory.createImpliesFactor(ncount, facname, fpot)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    for (i <- 0 until nodes.size-1) {
+      if (nodes(i).name == name1 || nodes(i).name == name2) { // matches(nodes(i).name, pattern1) || matches(nodes(i).name, pattern2)) {
+        edges(nodes.size-1) += i
+      }
+    }
+    fcount += 1
+    return ncount-1
+  }
 
 	def addNandFactor(pattern1: Regex, pattern2: Regex, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
 		nodes += FactorFactory.createNandFactor(ncount, facname, fpot)
@@ -238,6 +265,58 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		fcount += 1
 		return ncount-1
 	}
+
+  def addNandFactorByName(name1: String, name2: String, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
+    nodes += FactorFactory.createNandFactor(ncount, facname, fpot)
+    var matchFirst = false
+    var matchSecond = false
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    for (i <- 0 until nodes.size-1) {
+      if (nodes(i).name.equals(name1)) {
+        edges(nodes.size-1) += i
+        matchFirst = true
+      }
+      if (nodes(i).name.equals(name2)) {
+        edges(nodes.size-1) += i
+        matchSecond = true
+      }
+    }
+    assert(matchFirst, "Nand Factor did not find variable %s.".format(name1))
+    assert(matchSecond, "Nand Factor did not find variable %s.".format(name2))
+    //    assert(matchFirst, "Nand Factor did not find two or more variables [found %d] to coordinate [pattern = '%s' and '%s'].".format(matchcount, name1, name2))
+    fcount += 1
+    return ncount-1
+  }
+
+  def addNand3Factor(pattern1: Regex, pattern2: Regex, pattern3: Regex, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
+    nodes += FactorFactory.createNandFactor(ncount, facname, fpot)
+    var matchcount = 0
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    for (i <- 0 until nodes.size-1) {
+      if (matches(nodes(i).name, pattern1) || matches(nodes(i).name, pattern2) || matches(nodes(i).name, pattern3)) {
+        edges(nodes.size-1) += i
+        matchcount += 1
+      }
+    }
+    assert(matchcount > 1, "Nand Factor did not find two or more variables [found %d] to coordinate [pattern = '%s' and '%s'].".format(matchcount, pattern1, pattern2))
+    fcount += 1
+    return ncount-1
+  }
+
+  def addNand3FactorByName(pattern1: String, pattern2: String, pattern3: String, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
+    nodes += FactorFactory.createNandFactor(ncount, facname, fpot)
+    var matchcount = 0
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    for (i <- 0 until nodes.size-1) {
+      if (nodes(i).name.equals(pattern1) || nodes(i).name.equals(pattern2) || nodes(i).name.equals(pattern3)) {
+        edges(nodes.size-1) += i
+        matchcount += 1
+      }
+    }
+    assert(matchcount > 1, "Nand Factor did not find two or more variables [found %d] to coordinate [pattern = '%s' and '%s'].".format(matchcount, pattern1, pattern2))
+    fcount += 1
+    return ncount-1
+  }
 
   def addNand3FactorByIndex(idx1: Int, idx2: Int, idx3: Int, facname: String = "fac%d".format(fcount), fpot: Potential): Int = {
     nodes += FactorFactory.createNand3Factor(ncount, facname, fpot)
@@ -301,7 +380,16 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		return ncount-1
 	}
 
-  def addIsAtMost1FactorByIndices(iidx: Int, dIdxs: Array[Int], facname: String = "fac%d".format(fcount)): Int = {
+  def addIsAtMost1FactorByIndex(iidx: Int, didxs: Array[Int], facname: String = "fac%d".format(fcount)): Int = {
+    nodes += new IsAtMost1Factor(ncount, facname)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    edges(nodes.size-1) += iidx //nodes.indexWhere(n => matches(n.name, iPattern))
+    didxs.foreach(edges(nodes.size-1) += _)
+    fcount += 1
+    return ncount-1
+  }
+
+/*  def addIsAtMost1FactorByIndices(iidx: Int, dIdxs: Array[Int], facname: String = "fac%d".format(fcount)): Int = {
     nodes += new IsAtMost1Factor(ncount, facname)
     while (edges.size < nodes.size) edges += new ArrayBuffer
     edges(nodes.size-1) += iidx
@@ -309,6 +397,7 @@ class FactorGraphBuilder(pots: Array[Potential]) {
     fcount += 1
     return ncount-1
   }
+  */
 
   def addExactly1Factor(dPattern: Regex, facname: String = "fac%d".format(fcount)): Int = {
     nodes += new Exactly1Factor(ncount, facname)
@@ -320,21 +409,20 @@ class FactorGraphBuilder(pots: Array[Potential]) {
     return ncount-1
   }
 
+  def addExactly1FactorByIndices(idxs: Array[Int], facname: String = "fac%d".format(fcount)): Int = {
+    nodes += new Exactly1Factor(ncount, facname)
+    while (edges.size < nodes.size) edges += new ArrayBuffer
+    idxs.foreach(edges(nodes.size-1) += _)
+    fcount += 1
+    return ncount-1
+  }
+
 	def addAtMost1Factor(dPattern: Regex, facname: String = "fac%d".format(fcount)): Int = {
 		nodes += new AtMost1Factor(ncount, facname)
 		while (edges.size < nodes.size) edges += new ArrayBuffer
 		for (idx <- 0 until nodes.size if matches(nodes(idx).name, dPattern)) {
 			edges(nodes.size-1) += idx
 		}
-		fcount += 1
-		return ncount-1
-	}
-	
-	def addIsAtMost1FactorByIndex(iidx: Int, didxs: Array[Int], facname: String = "fac%d".format(fcount)): Int = {
-		nodes += new IsAtMost1Factor(ncount, facname)
-		while (edges.size < nodes.size) edges += new ArrayBuffer
-		edges(nodes.size-1) += iidx //nodes.indexWhere(n => matches(n.name, iPattern))
-		didxs.foreach(edges(nodes.size-1) += _)
 		fcount += 1
 		return ncount-1
 	}
@@ -393,15 +481,18 @@ class FactorGraphBuilder(pots: Array[Potential]) {
 		}
 	}
 
-  def resize2(opots: Array[Potential], numcols: Int, numrows: Int): Array[Array[Potential]] = {
-    Array.tabulate[Potential](numcols, numrows){ case(col,row) =>
-      opots((numcols * row) + col)
+  def resize2(opots: Array[Potential], arity1: Int, arity2: Int): Array[Array[Potential]] = {
+//    println("opots = \n" + opots.mkString("\n"))
+    val m = Array.tabulate[Potential](arity1, arity2){ case(i, j) =>
+      opots((arity2 * i) + j)
     }
+//    println("m = \n" + m.flatten.mkString("\n"))
+    m
   }
 
   def resize3(opots: Array[Potential], arity1: Int, arity2: Int, arity3: Int): Array[Array[Array[Potential]]] = {
-    System.err.println("arity %d x %d x %d".format(arity1, arity2, arity3))
-    System.err.println(opots.size)
+//    System.err.println("arity %d x %d x %d".format(arity1, arity2, arity3))
+//    System.err.println(opots.size)
     Array.tabulate[Potential](arity1, arity2, arity3){ case(i,j,k) =>
       opots((arity2 * arity3 * i) + (arity3 * j) + k )
     }

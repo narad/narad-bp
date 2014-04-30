@@ -14,7 +14,7 @@ trait BeliefPropagation extends InferenceMethod {
     // Pushing the unary factors first
     for (n <- graph.factors if graph.edgesFrom(n).size == 1) {
       val diff = n.computeMessages(graph, damp=1.0, verbose=verbose)
-      if (verbose) System.err.println("DEBUG: computing messages for [idx=" + j + "] for " + n.name + " [Update difference of " + diff + "].")
+      if (verbose) System.err.println("DEBUG: computed messages for " + n.name + " [Update difference of " + diff + "].\n")
       j += 1
     }
 
@@ -30,7 +30,7 @@ trait BeliefPropagation extends InferenceMethod {
         else {
           n.computeMessages(graph, damp=damp, verbose=verbose)
         }
-        if (verbose) System.err.println("DEBUG: computing messages for [idx=" + j + "] for " + n.name + " [Update difference of " + diff + "].")
+        if (verbose) System.err.println("DEBUG: computed messages for " + n.name + " [Update difference of " + diff + "].\n")
         if (diff > maxDiff) maxDiff = diff
         j += 1
       }

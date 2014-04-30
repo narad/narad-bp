@@ -12,7 +12,7 @@ import java.io.FileWriter
  * Also need to add array growing capabilities
  * Indexes start at 1.
  */
-class ArrayIndex[T: Manifest](init: Int=100000000, grow: Int=10000000) extends Index[T] {
+class ArrayIndex[T: Manifest](init: Int=100000000, grow: Int=10000000, base: Int = 0) extends Index[T] {
   val indexed = new HashMap[T, Int]()
   val list = new Array[T](init)
   var max = 0
@@ -41,6 +41,11 @@ class ArrayIndex[T: Manifest](init: Int=100000000, grow: Int=10000000) extends I
 
   def indexOf(t: T): Int = {
     indexed.getOrElse(t, -1)
+  }
+
+  def setRange(low: Int, high: Int): ArrayIndex[T] = {
+    assert(false, "Not implemented")
+    return null.asInstanceOf[ArrayIndex[T]]
   }
 
   def size = max

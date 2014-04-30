@@ -39,12 +39,12 @@ class PotentialExample(){
     features(pot.name) = feats
   }
 
-  def exponentiated(pvv: Array[Double]) = {
+  def exponentiated(pvv: Array[Double], verbose: Boolean=false) = {
 		val feats   = getFeatures				
 		val pots    = getPotentials
 		pots.foreach { pot =>
 			pot.value = feats(pot.name).filter(_.idx > 0).foldLeft(0.0){ (sum, feat) =>
-//				System.err.println("DEBUG: sum for %s = %f + %f = %f".format(pot.name, sum, pvv(feat.idx), sum + pvv(feat.idx) * feat.value))
+				if (verbose) System.err.println("DEBUG: sum for %s = %f + %f = %f".format(pot.name, sum, pvv(feat.idx), sum + pvv(feat.idx) * feat.value))
         sum + pvv(feat.idx) * feat.value
 			}
 		}

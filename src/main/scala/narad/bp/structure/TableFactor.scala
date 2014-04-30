@@ -1,7 +1,9 @@
 package narad.bp.structure
 
+import javax.management.remote.rmi._RMIConnection_Stub
 
-class Table1Factor(idx: Int, name: String, pots: Array[Potential]) extends Factor(idx, name) { //}, new UnaryFactorPotential(pots)) {
+
+class Table1Factor(idx: Int, name: String, pots: Array[Potential]) extends Factor(idx, name) {
   private val M = pots.size
 
   def arity = 1
@@ -11,6 +13,11 @@ class Table1Factor(idx: Int, name: String, pots: Array[Potential]) extends Facto
     val edge = fg.edgesFrom(this).toArray.head
     if (verbose) println("pots = " + pots.map(_.value).mkString(", "))
     edge.f2v = dampen(edge.f2v, pots.map(_.value), damp)
+    if (edge.f2v.exists(_.isNaN)) {
+      System.err.println("NaN detected in Table1Factor %s".format(name))
+      System.err.println("  Pots = [%s]".format(pots.mkString(", ")))
+      System.err.println("  f2v  = [%s]".format(edge.f2v.mkString(" ")))
+    }
     0.0
   }
 
@@ -23,7 +30,6 @@ class Table1Factor(idx: Int, name: String, pots: Array[Potential]) extends Facto
   override def clamp() = {
     pots.foreach(p => if (p.isCorrect) p.value = 1.0 else p.value = 0.0 )
   }
-
 }
 
 
@@ -34,11 +40,14 @@ class Table2Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extend
   def arity = 2
 
   def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
-    if (verbose) System.err.println("DEBUG:  Computing message in " + name)
+    if (verbose) System.err.println("DEBUG:  Computing message in Table2Factor " + name)
     val edges = graph.edgesFrom(this).toArray
+    if (verbose) System.err.println("DEBUG:  POTS = [%s]".format(pots.flatten.mkString("\n")))
 
     assert(edges(0).v2f.size == pots.size, "Error edge size %d does not equal pots matrix dim %d".format(edges(0).v2f.size, pots.size))
     assert(edges(1).v2f.size == pots(0).size, "Error edge size %d does not equal pots matrix dim %d".format(edges(1).v2f.size, pots(0).size))
+    if (verbose) System.err.println("DEBUG:  <<= incoming message from " + edges(0).variable.name + " = [" + edges(0).v2f.mkString(", ") + "]")
+    if (verbose) System.err.println("DEBUG:  <<= incoming message from " + edges(1).variable.name + " = [" + edges(1).v2f.mkString(", ") + "]")
 
     val tmp1 = Array.tabulate(M, N){case(i,j) => pots(i)(j).value}
     val tmp2 = Array.tabulate(M, N){case(i,j) => pots(i)(j).value}
@@ -55,18 +64,31 @@ class Table2Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extend
       mess2(j) = mess2(j) + tmp1(i)(j)
     }
 
-    edges(0).f2v = dampen(edges(0).f2v, mess1, damp)
-    edges(1).f2v = dampen(edges(1).f2v, mess2, damp)
-    if (verbose) System.err.println("DEBUG: mess 1 = [" + mess1.mkString(", ") + "]; damp = " + damp)
-    if (verbose) System.err.println("DEBUG: mess 2 = [" + mess2.mkString(", ") + "]; damp = " + damp)
+    val nmess1 = norm(mess1)
+    val nmess2 = norm(mess2)
+    edges(0).f2v = dampen(edges(0).f2v, nmess1, damp)
+    edges(1).f2v = dampen(edges(1).f2v, nmess2, damp)
+    val messes = Array(mess1, mess2)
+    for (i <- Array(0,1)) {
+      if (edges(i).f2v.exists(_.isNaN)) {
+        System.err.println("NaN detected in Table2Factor %s to %s".format(name, edges(i).variable.name))
+        System.err.println("  Pots = [%s]".format(pots.map(_.mkString(", ")).mkString("; ")))
+        System.err.println("  oms  = [%s]".format(messes(i).mkString(" ")))
+        System.err.println("  f2v  = [%s]".format(edges(i).f2v.mkString(" ")))
+      }
+    }
+    if (verbose) System.err.println("DEBUG: =>> mess 1 to " + edges(0).variable.name + " = [" + nmess1.mkString(", ") + "]; damp = " + damp)
+    if (verbose) System.err.println("DEBUG: =>> mess 2 to " + edges(1).variable.name + " = [" + nmess2.mkString(", ") + "]; damp = " + damp)
     0.0
   }
 
   def getBeliefs(graph: FactorGraph): Array[Potential] = {
     val edges = graph.edgesFrom(this).toArray
-    val beliefs = pots.clone()
-
+    val beliefs = pots.map(_.map(_.clone))
+//    System.err.println("DEBUG:  <<= incoming message from " + edges(0).variable.name + " = [" + edges(0).v2f.mkString(", ") + "]")
+//    System.err.println("DEBUG:  <<= incoming message from " + edges(1).variable.name + " = [" + edges(1).v2f.mkString(", ") + "]")
     for (i <- 0 until M; j <- 0 until N) {
+//      println(beliefs(i)(j) + " *= " + edges(0).v2f(i) + " * " + edges(1).v2f(j))
       beliefs(i)(j).value *= edges(0).v2f(i) * edges(1).v2f(j)
     }
     val f = beliefs.flatten
@@ -79,6 +101,7 @@ class Table2Factor(idx: Int, name: String, pots: Array[Array[Potential]]) extend
   }
 }
 
+
 class Table3Factor(idx: Int, name: String, pots: Array[Array[Array[Potential]]]) extends Factor(idx, name) {
   private val M = pots.size
   private val N = pots(0).size
@@ -88,6 +111,11 @@ class Table3Factor(idx: Int, name: String, pots: Array[Array[Array[Potential]]])
 
   def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
     val edges = graph.edgesFrom(this).toArray
+    if (verbose) System.err.println("DEBUG:  Computing message in Table3Factor " + name)
+    if (verbose) System.err.println("DEBUG:  <<= incoming message from " + edges(0).variable.name + " = [" + edges(0).v2f.mkString(", ") + "]")
+    if (verbose) System.err.println("DEBUG:  <<= incoming message from " + edges(1).variable.name + " = [" + edges(1).v2f.mkString(", ") + "]")
+    if (verbose) System.err.println("DEBUG:  <<= incoming message from " + edges(2).variable.name + " = [" + edges(2).v2f.mkString(", ") + "]")
+
     val tmp1 = Array.tabulate(M, N, P){case(i,j,k) => pots(i)(j)(k).value} //pots.clone()
     val tmp2 = Array.tabulate(M, N, P){case(i,j,k) => pots(i)(j)(k).value}
     val tmp3 = Array.tabulate(M, N, P){case(i,j,k) => pots(i)(j)(k).value}
@@ -107,16 +135,23 @@ class Table3Factor(idx: Int, name: String, pots: Array[Array[Array[Potential]]])
       mess3(k) = mess3(k) + tmp3(i)(j)(k)
     }
 
-    edges(0).f2v = dampen(edges(0).f2v, mess1, damp)
-    edges(1).f2v = dampen(edges(1).f2v, mess2, damp)
-    edges(2).f2v = dampen(edges(2).f2v, mess3, damp)
+    val nmess1 = norm(mess1)
+    val nmess2 = norm(mess2)
+    val nmess3 = norm(mess3)
+
+    edges(0).f2v = dampen(edges(0).f2v, nmess1, damp)
+    edges(1).f2v = dampen(edges(1).f2v, nmess2, damp)
+    edges(2).f2v = dampen(edges(2).f2v, nmess3, damp)
+    if (verbose) System.err.println("DEBUG: =>> mess 1 to " + edges(0).variable.name + " = [" + nmess1.mkString(", ") + "]; damp = " + damp)
+    if (verbose) System.err.println("DEBUG: =>> mess 2 to " + edges(1).variable.name + " = [" + nmess2.mkString(", ") + "]; damp = " + damp)
+    if (verbose) System.err.println("DEBUG: =>> mess 3 to " + edges(2).variable.name + " = [" + nmess3.mkString(", ") + "]; damp = " + damp)
     0.0
   }
 
 
   def getBeliefs(graph: FactorGraph): Array[Potential] = {
     val edges = graph.edgesFrom(this).toArray
-    val beliefs = pots.clone()
+    val beliefs = pots.map(_.map(_.map(_.clone)))  // RMIConnection_Stub.()
     for (i <- 0 until M; j <- 0 until N; k <- 0 until P) {
       beliefs(i)(j)(k).value *= edges(0).v2f(i) * edges(1).v2f(j) * edges(2).v2f(k)
     }

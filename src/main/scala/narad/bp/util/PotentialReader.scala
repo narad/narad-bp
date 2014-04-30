@@ -45,10 +45,18 @@ class PotentialReader(filename: String) extends Iterable[PotentialExample] {
             }
             pe.addPotential(new Potential(0.0, name, label == "+"), pfeats)
           }
+          case _=> {
+            println("Line does not match FIDX format: " + line)
+            System.exit(-1)
+          }
         }
       }
     }
-    catch { case e: Exception => { } } // Catches the read on an empty iterator / is normal behavior for now
+    catch { // Catches the read on an empty iterator / is normal behavior for now
+      case e: Exception => {
+        System.err.println(e.getStackTrace.mkString("\n"))
+      }
+    }
 
     //   System.err.println("Pot Reader pots.size = " + pots.size)
 //    if (pots.size > 0) {

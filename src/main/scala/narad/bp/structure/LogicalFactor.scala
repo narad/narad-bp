@@ -94,53 +94,47 @@ class IsAtMost1Factor(idx: Int, name: String) extends Factor(idx, name) { //}, n
 		for (edge <- graph.edgesFrom(this)) {
 			val in = edge.v2f
 			if (count == 0) {
-				//if (verbose)
-     //     println("first message from " + edge.variable.name + " = " + in(0) + "/" + in(1))
+				if (verbose) println("first message from " + edge.variable.name + " = " + in(0) + "/" + in(1))
 				z = in(0) / in(1)				
 			}
 			else {
-				//if (verbose)
- //         println("+= " + in(1) + "/" + in(0) + " from " + edge.variable.name)
+				if (verbose) println("+= " + in(1) + "/" + in(0) + " from " + edge.variable.name)
 				z += in(1) / in(0)
 				if (in(0) == 0) trues += 1				
 			}
 			count += 1
 		}
-		//if (verbose)
- //     println("Z = " + z + " and trues = " + trues)
+    assert(trues < 2, "2 or more true label variables found in IsAtMost1 factor.")
+		if (verbose) println("Z = " + z + " and trues = " + trues)
 		count = 0
 		for (edge <- graph.edgesFrom(this)) {
 			val in = edge.v2f
-			if (count == 0) {
-				var mess = if (trues == 1) {
-					Array(0.0, 1.0)
-				}
-				else if (z == Double.PositiveInfinity){
-					Array(1.0, 0.0)
-				}
-				else {
-					Array(1.0, z - in(0) / in(1))
-				}
-				//if (verbose)
-  //        println("step 1 mess = " + mess.mkString(", "))
-				// if (verbose)
-  //        println("-->" + edge.variable.name)
-				edge.f2v = dampen(edge.f2v, mess, damp)				
+      var mess = if (trues == 1) {
+        if (count == 0) {
+          Array(0.0, 1.0)
+        }
+        else {
+          if (in(0) == 0) Array(0.0, 1.0) else Array(1.0, 0.0)
+        }
+      }
+      else if (z == Double.PositiveInfinity) {
+        Array(1.0, 0.0)
+      }
+      else if (count == 0) {
+        Array(1.0, z - in(0) / in(1))
+      }
+      else {
+        Array(z - in(1) / in(0), 1.0)
 			}
-			else {
-				var mess = if (trues == 1 && in(0) == 0) {
-					Array(0.0, 1.0)
-				}
-				else if (trues == 1 || z == Double.PositiveInfinity) {
-					Array(1.0, 0.0)
-				}
-				else {
-					Array(z - in(1) / in(0), 1.0)
-				}
-				//if (verbose)
- //         println("step 2 mess = " + mess.mkString(", "))
-				edge.f2v = dampen(edge.f2v, mess, damp)
-			}
+      mess = norm(mess)
+      if (verbose) println("Out to %s:\n  [%s]".format(edge.variable.getName, mess.mkString(", ")))
+      edge.f2v = dampen(edge.f2v, mess, damp)
+      if (edge.f2v.exists(_.isNaN) || mess.exists(_.isNaN)) {
+        System.err.println("NaN found in IsAtMost1 computation:")
+        System.err.println("  Mess = [%s]".format(mess.mkString(", ")))
+        System.err.println("  f2v  = [%s]".format(edge.f2v.mkString(", ")))
+        System.err.println("  Z    = " + z)
+      }
 			count += 1
 		}
 		return 0.0
@@ -172,7 +166,14 @@ class NandFactor(idx: Int, name: String, pots: Array[Array[Potential]]) extends 
 		pots(1)(1).value = 1.0
 	}
 
-  override def clamp() = if (isCorrect) peg
+  override def neg = {
+    pots(0)(0).value = 1.0
+    pots(0)(1).value = 1.0
+    pots(1)(0).value = 1.0
+    pots(1)(1).value = 0.0
+  }
+
+  override def clamp() = if (isCorrect) peg else neg
 
   override def isCorrect = pots(1)(1).isCorrect
 }
@@ -202,7 +203,18 @@ class Nand3Factor(idx: Int, name: String, pots: Array[Array[Array[Potential]]]) 
     pots(1)(1)(1).value = 1.0
   }
 
-  override def clamp() = if (isCorrect) peg
+  override def neg = {
+    pots(0)(0)(0).value = 1.0
+    pots(0)(0)(1).value = 1.0
+    pots(0)(1)(0).value = 1.0
+    pots(0)(1)(1).value = 1.0
+    pots(1)(0)(0).value = 1.0
+    pots(1)(0)(1).value = 1.0
+    pots(1)(1)(0).value = 1.0
+    pots(1)(1)(1).value = 0.0
+  }
+
+  override def clamp() = if (isCorrect) peg else neg
 
   override def isCorrect = pots(1)(1)(1).isCorrect
 }
@@ -373,4 +385,42 @@ class YouShallNotPassFactor(idx: Int, name: String) extends Factor(idx, name) {
 			return Array[Potential]()
 		}
 }
+*/
+
+
+
+
+
+
+
+/*
+
+
+			if (count == 0) {
+				var mess = if (trues == 1) {
+					Array(0.0, 1.0)
+				}
+				else if (z == Double.PositiveInfinity){
+					Array(1.0, 0.0)
+				}
+				else {
+					Array(1.0, z - in(0) / in(1))
+				}
+				//if (verbose)
+  //        println("step 1 mess = " + mess.mkString(", "))
+				// if (verbose)
+  //        println("-->" + edge.variable.name)
+				edge.f2v = dampen(edge.f2v, mess, damp)
+			}
+			else {
+				var mess = if (trues == 1 && in(0) == 0) {
+					Array(0.0, 1.0)
+				}
+				else if (trues == 1 || z == Double.PositiveInfinity) {
+					Array(1.0, 0.0)
+				}
+				else {
+					Array(z - in(1) / in(0), 1.0)
+				}
+				//if (verbose)
 */

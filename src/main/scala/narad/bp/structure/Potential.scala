@@ -10,6 +10,8 @@ case class Potential(var value: Double, name: String, label: Boolean) {
 	   case other: Potential => this.name == other.name
 	   case _ => false
 	}
+
+  override def clone = new Potential(value, name, label)
 	
 //	override def toString = "%s\t%s".format(name, if (label) "+" else "")
 

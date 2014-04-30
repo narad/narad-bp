@@ -3,11 +3,12 @@ package narad.bp.structure
 object FactorFactory {
 	def createUnaryFactor(idx: Int, name: String, pot: Potential): UnaryFactor = {
 		val pots = if (pot == Double.PositiveInfinity) {  
-				Array[Potential](new Potential(0.0, "-%s".format(name), false), new Potential(1.0, name, pot.isCorrect))
+				Array[Potential](new Potential(0.0, "-%s".format(name), !pot.isCorrect), new Potential(1.0, name, pot.isCorrect))
 		}
 		else {
-				Array[Potential](new Potential(1.0, "-%s".format(name), false), pot)
+				Array[Potential](new Potential(1.0, "-%s".format(name), !pot.isCorrect), pot)
 		}
+//    println("POTS = " + pots.mkString("\n"))
 		return new UnaryFactor(idx, name, normalize(pots))		
 	}
 
@@ -51,7 +52,11 @@ object FactorFactory {
       pots(1)(1)(0) = new Potential(1.0, "n/a", false)
       pots(1)(1)(1) = pot
     }
-    return new Nand3Factor(idx, name, pots)
+    val f = new Nand3Factor(idx, name, pots)
+    println("Made factor F = " + f.name)
+    println(pots.mkString("\n"))
+    return f
+    //return new Nand3Factor(idx, name, pots)
   }
 
 // NEEDS VERIFICATION
@@ -59,8 +64,8 @@ object FactorFactory {
 		val pots = Array.ofDim[Potential](2,2)
 		if (pot == Double.PositiveInfinity) {
 			pots(0)(0) = new Potential(0.0, "n/a", false)
-			pots(0)(1) = new Potential(0.0, "n/a", false)
-      pots(1)(0) = new Potential(1.0, pot.name, pot.isCorrect)
+			pots(0)(1) = new Potential(0.0, "n/a", false)                          // Originally 0,1
+      pots(1)(0) = new Potential(1.0, pot.name, pot.isCorrect)               // originally 1,0
       pots(1)(1) = new Potential(0.0, "n/a", false)
 		}
 		else {
@@ -100,8 +105,9 @@ object FactorFactory {
 	}
 	
 	def normalize(pots: Array[Potential]): Array[Potential] = {
-		val cpots = pots.clone
+		val cpots = pots.map(_.clone) //pots.clone
 		val sum = pots.foldLeft(0.0)(_+_.value)
+ //   println("NORM SUM = " + sum)
 		cpots.foreach(_.value /= sum)
 		cpots
 	}

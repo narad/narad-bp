@@ -12,7 +12,7 @@ abstract class Model[+T] {
 
 	def options: ModelOptions
 
-  def observedVariableFactors(factors: Array[Factor]): Array[Factor] = Array()
+//  def observedVariableFactors: Iterator[Factor] = Array()
 
   def fromPotentialExample(ex: PotentialExample, pv: Array[Double]): T = {
     val instance = constructFromExample(ex, pv)
@@ -20,16 +20,50 @@ abstract class Model[+T] {
     decode(instance)
   }
 
+  def usesClampedTraining = false
 }
 
-abstract class FactorGraphModel[T] extends Model[T] with InferenceOrder {
-	
+abstract class  FactorGraphModel[T] extends Model[T] with InferenceOrder {}
+
+trait ModelOptions {}
+
+
+
+class ModelInstance(val graph: FactorGraph, val ex: PotentialExample) extends InferenceOrder {
+
+  override def clone = new ModelInstance(graph.copy, ex)
+
+  def features = ex.getFeatures
+
+  def marginals = graph.potentialBeliefs.filter(_.name != "null")
+
+  def isExact = false
+
+  def clampedFactors = Iterator[Factor]()
+
+}
+
+trait UpgradeableTo[T <: ModelInstance] {
+
+  def upgrade(ex: ModelInstance, dict: Index[String]): T
+
+}
+
+
+
+
+
+
+
+//  def hiddenVariableFactors = Array[Factor]()
+
 //	def graph: FactorGraph
 	
 //	def construct: (PotentialExample, Array[Potential]) => FactorGraphModel
 	
-}
+//}
 
+/*
 trait HiddenStructure {
 
 //  def hiddenVariableFactors(factors: Array[Factor]): Array[Factor]
@@ -37,6 +71,7 @@ trait HiddenStructure {
   def observedVariableFactors(factors: Array[Factor]): Array[Factor]
 
 }
+*/
 
 /*
 abstract class HiddenStructureModel[T] extends Model[T] with HiddenStructure {
@@ -57,28 +92,4 @@ abstract class HiddenStructureModelInstance(override val graph: FactorGraph, ove
 
 */
 
-
-trait ModelOptions {}
-
-
-
-class ModelInstance(val graph: FactorGraph, val ex: PotentialExample) extends InferenceOrder {
-
-  override def clone = new ModelInstance(graph.copy, ex)
-
-  def features = ex.getFeatures
-
-  def marginals = graph.potentialBeliefs.filter(_.name != "null")
-
-  def isExact = false
-
-  def hiddenVariableFactors = Array[Factor]()
-
-}
-
-trait UpgradeableTo[T <: ModelInstance] {
-
-  def upgrade(ex: ModelInstance, dict: Index[String]): T
-
-}
 

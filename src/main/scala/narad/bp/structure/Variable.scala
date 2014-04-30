@@ -11,8 +11,9 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 //		if (verbose) println("Computing variable message for %s.".format(name))
 //		println("damp = " + damp)
 		var maxDiff = -1.0
-		for (dest <- graph.edgesFrom(this)) {
-			if (verbose) println("\nVariable message from %s ==> %s:".format(this, dest.factor.name))
+    if (verbose) println("Outgoing Variable messages for " + name)
+    for (dest <- graph.edgesFrom(this)) {
+			if (verbose) println("  message from %s ==> %s:".format(name, dest.factor.name))
 			val omess = dest.v2f
 			var nmess = Array.fill(omess.size)(1.0)
 			for (e <- graph.edgesFrom(this) if e != dest) {
@@ -22,6 +23,16 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 			if (verbose) println("  ...final message = [%s]".format(nmess.mkString(", ")))
 			val sum = nmess.foldLeft(0.0)(_+_)
 			nmess = nmess.map(_ / sum)
+      if(nmess.exists(_.isNaN)) {
+        System.err.println("NaN found in variable %s.".format(name))
+        System.err.println("  n mess = " + nmess.mkString(", "))
+        System.err.println("  o mess = " + omess.mkString(", "))
+        System.err.println("  sum    = " + sum)
+        System.err.println("  messages in: ")
+        for (e <- graph.edgesFrom(this) if e != dest) {
+          System.err.println("  -- from %s = [%s]".format(e.factor.name, e.f2v.mkString(", ")))
+        }
+      }
 			if (verbose) println("  ...normalized =    [%s]".format(nmess.mkString(", ")))
 			val res = dampen(omess, nmess, damp)
 //			if (verbose) println("  ...updated    =    [%s]\n".format(res.mkString(", ")))
@@ -36,17 +47,17 @@ class Variable(idx: Int, name: String, var arity: Int) extends MessageNode(idx, 
 	def getBeliefs(graph: FactorGraph): Array[(String, Double)] = {
 		val res = new Array[Double](arity)
     for (i <- 0 until res.size) res(i) = 1.0
-    println("arity = " + arity)
+//    println("arity = " + arity)
 		for (e <- graph.edgesFrom(this)) {
-      println(" <-- " + e.toString)
-      println("  " + e.f2v.mkString(", "))
+//      println(" <-- " + e.toString)
+//      println("  " + e.f2v.mkString(", "))
       for (i <- 0 until res.size) {
         res(i) *= e.f2v(i)
       }
     }
-    println("res = " + res.mkString(" "))
+//    println("res = " + res.mkString(" "))
 		val sum = res.foldLeft(0.0)(_+_)
-    println("sum = " + sum)
+//    println("sum = " + sum)
 		val beliefs = res.map(_ / sum)
 //    if (arity == 2) {
 //      Array((name, beliefs(1)))

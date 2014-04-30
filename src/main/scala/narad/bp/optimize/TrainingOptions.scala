@@ -19,15 +19,27 @@ trait TrainingOptions {
 
   def BATCH_SIZE: Int
 
+  def CONCURRENCY: String
+
+  def DECAY: Double
+
   def INIT_FILE: String
 
+  def MARGINALIZATION: Boolean
+
   def MODEL_OUTPUT_FILE: String
+
+  def NUM_CORES: Int
 
   def CHECK_FOR_NAN: Boolean
 
   def TRAIN_ORDER: String
 
   def PV_SIZE: Int
+
+  def PV_SET: Double
+
+  def PV_SET_RANGE: (Int, Int)
 
   def RATE: Double
 

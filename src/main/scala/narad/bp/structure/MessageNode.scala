@@ -34,9 +34,17 @@ abstract class MessageNode(val idx: Int, val name: String) {
 	def elementMultiplication(v1: Array[Double], v2: Array[Double]): Array[Double] = {
 		return v1.zip(v2).map(p => p._1 * p._2)
 	}
-*/	
+*/
+  def clonePots(pots: Array[Potential]): Array[Potential] = {
+    val cloned = new Array[Potential](pots.size)
+    for (i <- 0 until pots.size) {
+      cloned(i) = new Potential(pots(i).value, pots(i).name, pots(i).isCorrect)
+    }
+  cloned
+  }
+
 	def elementMultiplication(v1: Array[Double], pots: Array[Potential]): Array[Potential] = {
-		val v2 = pots.clone
+		val v2 = pots.map(_.clone()) //clonePots(pots) //pots.clone
 		assert(v1.size == v2.size)
 		for (i <- 0 until v2.size) v2(i).value *= v1(i)
 		return v2

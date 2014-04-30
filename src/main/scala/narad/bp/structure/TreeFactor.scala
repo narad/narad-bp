@@ -8,7 +8,7 @@ import scala.math._
 
 
 class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
-  val indicesPattern = new Regex("brackvar\\(([0-9]+)\\,([0-9]+)\\)")
+  val INDICES_PATTERN = new Regex("brackvar\\(([0-9]+)\\,([0-9]+)\\)")
 
   def arity = slen
 
@@ -26,16 +26,13 @@ class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
     for (edge <- graph.edgesFrom(this)) {
       //		println("the edge = " + edge.variable.name)
       edge.variable.name match {
-        case indicesPattern(start, end) => {
+        case INDICES_PATTERN(start, end) => {
           val i = start.toInt
           val k = end.toInt
           val m = edge.v2f
           assert(m.size == 2, "Message from Variable to CKY factor should be boolean, has arity %d instead.".format(m.size))
           score(i)(k) = log(m(1)) - log(m(0))
-          //if (verbose)
-
-  //        println(" --> " + edge.variable.idx + ": " + edge.variable.name)
-  //                println("CKY-IN for (%d,%d) = %f".format(i, k, score(i)(k)))
+          if (verbose) System.err.println("  incoming from (%d,%d) = [F=%1.2f,T=%1.2f] = %1.2f".format(i, k, m(0), m(1), score(i)(k)))
           if (m(0) == 0) {
             score(i)(k) = 0
             pegs += ((i, k))
@@ -44,6 +41,7 @@ class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
         case _ => System.err.println("ERROR IN CKY FACTOR - CONNECTED VAR (%s) DOES NOT MATCH PATTERN!".format(edge.variable.name))
       }
     }
+//    println("PEGS = " + pegs.mkString(", "))
 
     for (peg <- pegs) {
       val start = peg._1
@@ -64,8 +62,7 @@ class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
     var logZ = Double.NegativeInfinity
     for (j <- 1 until slen) logZ = logIncrement(logZ, beta(0)(j) + beta(j)(slen))
     alpha(0)(slen) = -logZ
-    // if (verbose)
-//      println("-log Z = " + alpha(0)(slen))
+    if (verbose) System.err.println("-log Z = " + alpha(0)(slen))
 
     for (w <- 2 until slen; i <- 0 to slen-w) {
       alpha(i)(i+w) = Double.NegativeInfinity
@@ -92,7 +89,7 @@ class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
     for (edge <- graph.edgesFrom(this)) {
 //      println(" --> " + edge.variable.name)
       edge.variable.name match {
-        case indicesPattern(start, end) => {
+        case INDICES_PATTERN(start, end) => {
           val i = start.toInt
           val k = end.toInt
           if (i != 0 || k != slen) {
@@ -102,15 +99,38 @@ class CKYFactor(idx: Int, name: String, slen: Int) extends Factor(idx, name) {
               m(0) = 1
               m(1) = 0
             }
-            else if (odds == Double.PositiveInfinity) {
+            else if (score(i)(k) == 0 || odds == Double.PositiveInfinity) {
               m(0) = 0
               m(1) = 1
             }
-            // if (verbose)
- //             println("CKY-OUT for (%d,%d) = [%f,%f]".format(i, k, m(0), m(1)))
+            if (verbose) System.err.println("  CKY --> (%d,%d) = [%f,%f]".format(i, k, m(0), m(1)))
             // if (verbose)
  //             println("--overwriting [%f, %f] with damp = %f".format(edge.f2v(0), edge.f2v(1), damp))
             edge.f2v = dampen(edge.f2v, m, damp)
+            if (m.exists(_.isNaN) || edge.f2v.exists(_.isNaN)) {
+              System.err.println("NaN Found in CKY Tree Factor:")
+              System.err.println(" -- in message to %s = [%s]".format(edge.variable.getName, m.mkString(", ")))
+              System.err.println(" -- resulting in edge.f2v of [%s]".format(edge.f2v.mkString(", ")))
+              for (edge <- graph.edgesFrom(this)) {
+                System.err.println("  <-- Incoming Message from %s = [%s]".format(edge.variable.name, edge.v2f.mkString(", ")))
+              }
+              System.err.println("log Z = " + logZ)
+              for (i <- 0 until score.size; j <- 0 until score(i).size) {
+                System.err.println("  score(%d)(%d) = ".format(i,j) + score(i)(j))
+              }
+              System.err.println
+              for (i <- 0 until alpha.size; j <- 0 until alpha(i).size) {
+                System.err.println("  alpha(%d)(%d) = ".format(i,j) + alpha(i)(j))
+              }
+              System.err.println
+              for (i <- 0 until beta.size; j <- 0 until beta(i).size) {
+                System.err.println("  beta(%d)(%d) = ".format(i,j) + beta(i)(j))
+              }
+              System.err.println
+              for (i <- 0 until grad.size; j <- 0 until grad(i).size) {
+                System.err.println("  grad(%d)(%d) = ".format(i,j) + grad(i)(j))
+              }
+            }
           }
         }
         case _ => System.err.println("ERROR IN CKY FACTOR - CONNECTED VAR (%s) DOES NOT MATCH PATTERN!".format(edge.variable.name))
@@ -229,6 +249,19 @@ class ProjectiveTreeFactor(idx: Int, name: String, slen: Int, multirooted: Boole
           if (verbose) System.err.println("DEBUG:  " + m.mkString(" "))
           val edge = groups((head, dep))(0)
           edge.f2v = dampen(edge.f2v, m, damp)
+          if (m.exists(_.isNaN) || edge.f2v.exists(_.isNaN)) {
+            System.err.println("NaN Found in PTree Factor:")
+            for (edge <- graph.edgesFrom(this)) {
+              System.err.println("  <-- Incoming Message from %s = [%s]".format(edge.variable.name, edge.v2f.mkString(", ")))
+            }
+            System.err.println("  Z = " + z)
+            for (dep <- 1 to slen) {
+              val tkoffset = dep * slen
+              val doff = tkoffset + dep - 1
+              println("  tkmat(%d) = ".format(doff, tkmat(doff)))
+
+            }
+          }
           //          edges(ei).f2v = dampen(edges(ei).f2v, m, damp)
           ei += 1
         }

@@ -25,8 +25,15 @@ case class Feature(idx: Int, value: Double = 1, group: Int=0) { //extends Featur
   }
 }
 
-class StringFeature(val name: String, value: Double, group: Int=0) extends Feature(-1, value, group) {
+class StringFeature(val name: String, idx: Int, value: Double = 1, group: Int=0) extends Feature(idx, value, group) {
 
-  override def toString = if (value == 1) name.toString else "%s=%f".format(name, value)
+  override def toString = {
+    if (value == 1) {
+      name.toString.replaceAll("=", "EQ-SIGN")
+    }
+    else {
+      "%s=%f".format(name.replaceAll("=", "EQ-SIGN"), value)
+    }
+  }
 
 }

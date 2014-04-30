@@ -13,6 +13,8 @@ abstract class Index[T] {
 
   def indexOf(t: T): Int
 
+  def setRange(low: Int, high: Int): Index[T]
+
   def size: Int
 
   def writeToFile(filename: String)

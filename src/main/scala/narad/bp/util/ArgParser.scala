@@ -20,6 +20,11 @@ class ArgParser(argArray: Array[String]) {
 
   def getDouble(arg: String, default: Double): Double = getString(arg, default.toString).toDouble
 
+  def getRange(arg: String, default: (Int, Int)): (Int,Int) = {
+    val a = getString(arg, default.toString).substring(1, default.toString.size-1).split(",")
+    (a(0).toInt, a(1).toInt)
+  }
+
   def getString(arg: String): String = getString(arg, null.asInstanceOf[String])
 
   def getString(arg: String, default: String): String = {

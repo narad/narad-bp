@@ -51,54 +51,6 @@ abstract class Factor(idx: Int, name: String) extends MessageNode(idx, name) { /
 	}
 }
 
-class UnaryFactor(idx: Int, name: String, var pots: Array[Potential]) extends Factor(idx, name) {  //, new UnaryFactorPotential(pots)) {
-
-  def arity = 1
-
-  override def clone = new UnaryFactor(idx, name, pots.map(_.copy))
-
-  def computeMessages(graph: FactorGraph, damp: Double = 1.0, verbose: Boolean = false): Double = {
-    if (verbose) println("Computing message in Factor %s.".format(name))
-    val edge = graph.edgesFrom(this).toArray.head
-    edge.f2v = dampen(edge.f2v, pots.map(_.value), damp)
-    0.0
-  }
-
-	def getBeliefs(graph: FactorGraph): Array[Potential] = {
-		val edges = graph.edgesFrom(this).toArray
-		assert (edges.size == 1)
-//		println("DEBUG:  v2f message for %s is %s from %s.".format(name, edges.head.v2f.mkString(","),edges.first.variable.name))
-//		println("DEBUG:    * [%s]".format(pots.map(_.value).mkString(", ")))
-		val beliefs = elementMultiplication(graph.edgesFrom(this).toArray.head.v2f, pots)
-//		println("DEBUG:    = [%s]".format(beliefs.map(_.value).mkString(", ")))
-		normalize(beliefs)
-/*
-		println("DEBUG:   = [%s] normalized.".format(beliefs.map(_.value).mkString(", ")))
-		println("DEBUG:   returning potetnial %s".format(beliefs(1).toString))
-		println("DEBUG:   ")
-*/
-    Array(beliefs(1))
-	}
-
-	override def peg() = {
-		pots(0).value = 0.0
-		pots(1).value = 1.0
-	}
-
-  override def neg() = {
-    pots(0).value = 1.0
-    pots(1).value = 0.0
-  }
-
-  override def clamp() = {
-    //pots.foreach {p => if (p.isCorrect) p.value = 1.0 else p.value = 0.0 }
-    if (isCorrect) peg() else neg()
-  }
-
-  override def isCorrect = pots(1).isCorrect
-
-
-}
 
 
 
